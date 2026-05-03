@@ -2,9 +2,11 @@
 
 ## 1. Product Overview
 
-The Multi-Agent Customer Support Crew is an AI-assisted support operations system for mid-market to enterprise B2B SaaS companies. It coordinates specialized AI agents to process incoming email and ticket-based customer support requests, then provides human support agents with classification, knowledge-backed answer suggestions, sentiment signals, routing recommendations, and escalation guidance.
+The Multi-Agent Customer Support Crew is an AI-assisted support operations system for mid-market to enterprise B2B SaaS companies. It functions as an orchestration layer that manages decision-making across the customer support lifecycle, including ticket classification, knowledge retrieval, sentiment analysis, response drafting, routing, and escalation recommendations.
 
-The product is not intended to replace support agents in the MVP. Instead, it augments support teams by reducing repetitive triage and research work while preserving human approval for customer-facing responses.
+The product is not intended to replace support agents in the MVP. Instead, it augments support teams by reducing repetitive triage and research work while preserving human approval for all customer-facing responses.
+
+The MVP focuses on email and ticket-style support requests. It processes one ticket at a time and produces a consolidated review package that a human support agent can inspect, edit, approve, reject, route, or escalate.
 
 ### Product Goals
 
@@ -23,6 +25,8 @@ The product is not intended to replace support agents in the MVP. Instead, it au
 - Support channels for MVP: email and ticketing systems.
 - Language for MVP: English.
 
+---
+
 ## 2. MVP Scope
 
 The MVP covers AI-assisted processing of incoming customer support tickets for subscription-based B2B SaaS companies.
@@ -33,12 +37,13 @@ The MVP covers AI-assisted processing of incoming customer support tickets for s
 - Knowledge base Q&A and relevant article retrieval.
 - Suggested response drafting for support agent review.
 - Sentiment detection for urgency, frustration, and prioritization.
-- Intelligent routing to support teams such as billing, technical support, onboarding, or customer success.
+- Intelligent routing to support teams such as billing, technical support, onboarding, customer success, or general support.
 - Escalation recommendations for complex, sensitive, high-risk, or low-confidence cases.
 - Human-in-the-loop approval for all customer-facing responses.
 - Simplified or mocked integrations for ticket source, customer metadata, and knowledge base content.
 - English-language tickets and responses.
 - Agent output summaries that expose the reasoning behind classification, routing, and escalation recommendations.
+- Structured output storage for later evaluation.
 
 ### MVP v1 Demo Boundary
 
@@ -56,6 +61,7 @@ The first implementable MVP path should be intentionally narrow:
 
 - Incoming ticket subject.
 - Incoming ticket body.
+- Channel type.
 - Customer or account metadata, mocked or simplified.
 - Knowledge base articles or support documentation.
 - Team routing categories.
@@ -71,6 +77,9 @@ The first implementable MVP path should be intentionally narrow:
 - Recommended team or queue.
 - Escalation recommendation with rationale.
 - Final review package for a human support agent.
+- Structured record of human feedback actions.
+
+---
 
 ## 3. Out of Scope Items
 
@@ -92,6 +101,8 @@ The following items are excluded from the MVP:
 - Production-scale asynchronous queue processing.
 - Automated learning from feedback without human review.
 - Multiple production integration adapters in the first MVP path.
+
+---
 
 ## 4. User Personas
 
@@ -138,6 +149,8 @@ Primary jobs:
 - Maintain knowledge base readiness.
 - Validate whether multi-agent orchestration improves support operations.
 
+---
+
 ## 5. Core User Flows
 
 ### Flow 1: Incoming Ticket Triage
@@ -183,17 +196,97 @@ Primary jobs:
 4. The system records feedback signals for evaluation.
 5. Support operations reviews aggregate outcomes outside the MVP analytics scope, using available logs or exported results.
 
-## 6. Agent Roles and Responsibilities
+---
+
+## 6. UI and Experience Requirements
+
+The MVP user experience should prioritize clarity, trust, and fast human review.
+
+### Support Agent Review Package
+
+The system should present all AI outputs in one consolidated review view. The review package should include:
+
+- Original ticket subject and body.
+- Ticket summary.
+- Classification result and confidence score.
+- Sentiment and urgency indicators.
+- Retrieved knowledge base references.
+- Suggested response draft.
+- Routing recommendation.
+- Escalation recommendation.
+- Warnings, confidence gaps, or manual review indicators.
+- Human feedback controls.
+
+### Human Actions
+
+Support agents should be able to:
+
+- Approve the suggested draft.
+- Edit the suggested draft.
+- Reject the suggested draft.
+- Regenerate the suggested draft, if supported.
+- Accept or override routing recommendation.
+- Accept or dismiss escalation recommendation.
+- Mark the ticket as requiring manual review.
+
+### Trust and Explainability Requirements
+
+The interface or output format should clearly distinguish:
+
+- Original customer content.
+- AI-generated outputs.
+- Human-approved decisions.
+- Retrieved source references.
+- Low-confidence warnings.
+- Safety or escalation notes.
+
+The MVP does not require a production-grade frontend, but the generated review package must be easy to inspect through a CLI output, markdown report, JSON output, lightweight UI, or simple local interface.
+
+---
+
+## 7. Execution Model for the MVP
+
+The MVP uses a synchronous, orchestrated pipeline.
+
+### Execution Characteristics
+
+- One ticket is processed at a time.
+- Agents are executed in a predictable sequence.
+- Each agent receives the original ticket context plus relevant accumulated outputs from prior steps.
+- The orchestrator controls execution order and assembles the final review package.
+- The system may continue with partial outputs when an agent fails, but the final package must clearly indicate missing or low-confidence results.
+
+### Failure Handling
+
+- If classification confidence is low, the ticket is flagged for manual triage review.
+- If retrieval confidence is low, the system should avoid unsupported response drafting or mark the draft as not ready to send.
+- If sentiment is high-risk, escalation priority increases.
+- If outputs conflict, the conflict must be surfaced to the human reviewer.
+- No automated decision is enforced without human approval.
+
+### Future Evolution Outside MVP
+
+- Parallel execution for independent agents.
+- Queue-based processing.
+- Event-driven ticket ingestion.
+- Deeper CRM and helpdesk integrations.
+- Feedback-driven continuous improvement workflows.
+
+---
+
+## 8. Agent Roles and Responsibilities
 
 ### Orchestrator Agent
 
 Responsibilities:
 
 - Coordinate execution of specialized agents.
+- Maintain a shared ticket context object.
 - Pass ticket context and intermediate outputs between agents.
 - Enforce the correct workflow order.
+- Apply confidence-gating rules across the workflow.
 - Assemble the final support review package.
-- Handle low-confidence or failed agent outputs by triggering escalation recommendations.
+- Handle low-confidence or failed agent outputs by triggering human review or escalation recommendations.
 
 ### Classification Agent
 
@@ -280,59 +373,9 @@ Responsibilities:
 - Recommend escalation target such as support lead, technical specialist, billing specialist, onboarding team, or customer success manager.
 - Explain why escalation is or is not recommended.
 
-### Agent Output Contracts
+---
 
-Each agent should return structured output that can be stored, displayed, and evaluated.
-
-#### `ClassificationResult`
-
-- `category`.
-- `intent`.
-- `product_area`.
-- `confidence`.
-- `rationale`.
-- `needs_manual_review`.
-
-#### `SentimentResult`
-
-- `sentiment_label`.
-- `urgency`.
-- `risk_flags`.
-- `confidence`.
-- `rationale`.
-
-#### `RetrievalResult`
-
-- `sources`.
-- `snippets`.
-- `relevance_scores`.
-- `retrieval_confidence`.
-- `missing_knowledge`.
-
-#### `DraftResponse`
-
-- `draft_text`.
-- `source_ids`.
-- `confidence`.
-- `safety_notes`.
-- `sendable_after_human_review`.
-
-#### `RoutingRecommendation`
-
-- `queue`.
-- `confidence`.
-- `rationale`.
-- `manual_review_required`.
-
-#### `EscalationRecommendation`
-
-- `escalate`.
-- `severity`.
-- `target`.
-- `reason`.
-- `confidence`.
-
-## 7. Agent Interaction Patterns
+## 9. Agent Interaction Patterns
 
 ### Sequential Baseline Pattern
 
@@ -356,9 +399,11 @@ Each agent should receive the original ticket context plus relevant upstream out
 Low-confidence outputs should affect downstream behavior:
 
 - Low classification confidence should trigger manual triage review.
-- Low knowledge retrieval confidence should prevent unsupported response drafts.
+- Low knowledge retrieval confidence should prevent unsupported response drafts or mark the draft as unsafe to send.
 - High-risk sentiment should increase escalation priority.
 - Conflicting agent outputs should be surfaced to the human reviewer.
+- Missing knowledge sources should reduce draft confidence.
+- Low routing confidence should recommend manual assignment.
 
 ### Ticket and Review Lifecycle
 
@@ -382,7 +427,230 @@ The system must require human approval before any customer-facing response is se
 
 The system should preserve agent outputs, source references, confidence scores, and final human decisions so support operations can evaluate quality and trustworthiness.
 
-## 8. Functional Requirements
+---
+
+## 10. Confidence Handling Model
+
+The system uses confidence scores from each agent to influence downstream decisions and human review requirements.
+
+### Confidence Handling Rules
+
+- Low classification confidence should force manual triage review.
+- Low retrieval confidence should restrict or caution response drafting.
+- High-risk sentiment should increase escalation priority.
+- Conflicting agent outputs should be surfaced to the human reviewer.
+- Missing knowledge sources should reduce draft confidence.
+- Low routing confidence should recommend manual assignment.
+- Low escalation confidence should present the recommendation as advisory rather than definitive.
+
+For the MVP, confidence thresholds may be static. In future versions, thresholds should become configurable by support operations teams.
+
+### Suggested MVP Confidence Thresholds
+
+These thresholds are initial validation defaults and may be adjusted during testing:
+
+| Signal | Suggested Threshold | System Behavior |
+| --- | --- | --- |
+| Classification confidence | < 0.70 | Manual triage review |
+| Retrieval confidence | < 0.70 | Draft marked as unsupported or unsafe to send |
+| Routing confidence | < 0.70 | Manual routing review |
+| Escalation confidence | < 0.70 | Advisory escalation recommendation |
+| High-risk sentiment | >= 0.75 | Escalation priority increased |
+
+---
+
+## 11. Agent Output Contracts
+
+Each agent should return structured output that can be stored, displayed, and evaluated.
+
+### `ClassificationResult`
+
+- `category`
+- `intent`
+- `product_area`
+- `confidence`
+- `rationale`
+- `needs_manual_review`
+
+### `SentimentResult`
+
+- `sentiment_label`
+- `urgency`
+- `risk_flags`
+- `confidence`
+- `rationale`
+
+### `RetrievalResult`
+
+- `sources`
+- `snippets`
+- `relevance_scores`
+- `retrieval_confidence`
+- `missing_knowledge`
+
+### `DraftResponse`
+
+- `draft_text`
+- `source_ids`
+- `confidence`
+- `safety_notes`
+- `sendable_after_human_review`
+
+### `RoutingRecommendation`
+
+- `queue`
+- `confidence`
+- `rationale`
+- `manual_review_required`
+
+### `EscalationRecommendation`
+
+- `escalate`
+- `severity`
+- `target`
+- `reason`
+- `confidence`
+
+### `ReviewPackage`
+
+- `ticket_summary`
+- `classification_result`
+- `sentiment_result`
+- `retrieval_result`
+- `draft_response`
+- `routing_recommendation`
+- `escalation_recommendation`
+- `human_review_required`
+- `warnings`
+- `created_at`
+
+---
+
+## 12. High-Level Data Model
+
+The MVP should use a simple data model that supports evaluation, auditability, and future implementation.
+
+### `Ticket`
+
+Represents the original customer support request.
+
+Fields:
+
+- `id`
+- `subject`
+- `body`
+- `channel`
+- `customer_id`
+- `created_at`
+- `metadata`
+- `status`
+
+### `Customer`
+
+Represents simplified customer or account metadata.
+
+Fields:
+
+- `customer_id`
+- `company_name`
+- `account_tier`
+- `customer_status`
+- `assigned_csm`
+- `renewal_risk`
+- `plan_type`
+
+### `KnowledgeBaseArticle`
+
+Represents approved support content used for grounding responses.
+
+Fields:
+
+- `source_id`
+- `title`
+- `content`
+- `product_area`
+- `version`
+- `last_updated`
+
+### `AgentOutput`
+
+Represents the structured result generated by an agent.
+
+Fields:
+
+- `agent_type`
+- `result_payload`
+- `confidence`
+- `rationale`
+- `created_at`
+
+### `ReviewPackage`
+
+Represents the final consolidated output presented to the human support agent.
+
+Fields:
+
+- `ticket`
+- `agent_outputs`
+- `draft_response`
+- `routing_recommendation`
+- `escalation_recommendation`
+- `human_feedback`
+- `status`
+
+---
+
+## 13. Integration Requirements
+
+The MVP should use simplified or mocked integrations suitable for a capstone project.
+
+### Ticket Source
+
+The MVP should support ticket-style inputs from one of the following:
+
+- JSON fixture.
+- Local file.
+- Simple form.
+- API request.
+
+Production ticketing integrations such as Zendesk, Intercom, Salesforce Service Cloud, or ServiceNow are outside MVP scope.
+
+### Customer Metadata
+
+Customer metadata may be provided through a mock dataset or local JSON file.
+
+Required metadata should include:
+
+- Customer ID.
+- Company name.
+- Account tier.
+- Customer status.
+- Assigned customer success manager, if available.
+- Renewal or churn-risk indicator, if available.
+
+### Knowledge Base
+
+The MVP should use a small approved knowledge base with:
+
+- Source IDs.
+- Article titles.
+- Article content or snippets.
+- Product area.
+- Version or last-updated metadata.
+
+### External LLM Provider
+
+The system may use OpenAI or another compatible LLM provider for classification, sentiment analysis, response drafting, and reasoning tasks.
+
+The MVP must not hard-code secrets. API keys must be stored in local environment variables and excluded from version control.
+
+### Optional Search or Retrieval Tools
+
+If retrieval requires search capabilities, the MVP may use simple local keyword search, vector search, or mocked retrieval. External web search is not required for the MVP.
+
+---
+
+## 14. Functional Requirements
 
 ### Ticket Intake
 
@@ -428,7 +696,7 @@ FR-016: The system shall generate a suggested response draft for human review.
 
 FR-017: The response draft shall be grounded in retrieved knowledge base content when available.
 
-FR-018: The system shall avoid customer-facing response drafts when knowledge confidence is insufficient.
+FR-018: The system shall avoid customer-facing response drafts when knowledge confidence is insufficient or clearly mark the draft as unsafe to send.
 
 FR-019: The response draft shall avoid unsupported commitments, refunds, legal statements, or account changes.
 
@@ -478,7 +746,17 @@ FR-036: Each evaluation ticket shall include expected category, routing queue, s
 
 FR-037: The system shall support comparing agent outputs against expected labels for MVP validation.
 
-## 9. Non-Functional Requirements
+### Safety and Prompt Injection Handling
+
+FR-038: The system shall treat customer ticket content as untrusted input.
+
+FR-039: The system shall ignore customer-provided instructions that attempt to override routing, escalation, safety, or response-generation policies.
+
+FR-040: The system shall flag likely secrets, credentials, payment data, or sensitive personal data when detected in ticket content.
+
+---
+
+## 15. Non-Functional Requirements
 
 ### Accuracy and Quality
 
@@ -490,7 +768,7 @@ NFR-003: The system should make source references available for response drafts.
 
 ### Performance
 
-NFR-004: The system should process a standard support ticket within a practical review timeframe for agent workflows.
+NFR-004: The system should process a standard support ticket within 30 seconds for the MVP demo path.
 
 NFR-005: The system should avoid long blocking operations when one agent fails or returns low confidence.
 
@@ -538,18 +816,23 @@ NFR-020: The system must not reveal hidden prompts, internal policies, unrelated
 
 NFR-021: The system should redact or flag likely secrets, credentials, payment data, or sensitive personal data before unnecessary agent processing.
 
-## 10. Success Metrics
+---
+
+## 16. Success Metrics
 
 MVP success metrics should be measured against the labeled evaluation set and human review feedback.
 
-### Operational Metrics
+### Core MVP Success Metrics
 
 - Ticket classification accuracy: at least 80% on the labeled MVP evaluation set.
 - Routing recommendation accuracy: at least 75% on the labeled MVP evaluation set.
-- Escalation precision: at least 80% for clearly labeled high-risk or complex tickets.
-- First response preparation time reduction: at least 30% versus manual review of the same demo tickets.
-- Average handle-time assistance: estimated time saved per ticket during human review.
 - Usable AI-generated response drafts: at least 70% rated usable by a reviewer.
+- First response preparation time reduction: at least 30% versus manual review of the same demo tickets.
+
+### Secondary Operational Metrics
+
+- Escalation precision: at least 80% for clearly labeled high-risk or complex tickets.
+- Average handle-time assistance: estimated time saved per ticket during human review.
 - Knowledge retrieval relevance: at least one correct source in the top three results for 75% of tickets with known KB coverage.
 - Ticket processing latency: under 30 seconds per ticket for the MVP demo path.
 
@@ -557,8 +840,6 @@ MVP success metrics should be measured against the labeled evaluation set and hu
 
 - Agent acceptance rate of suggested drafts.
 - Human edit distance or revision rate for generated responses.
-- Customer satisfaction score impact.
-- SLA compliance improvement.
 - Reduction in misrouted tickets.
 - False positive and false negative rates for sentiment-based prioritization.
 - Safety compliance: 100% of customer-facing responses require human approval.
@@ -580,7 +861,9 @@ MVP success metrics should be measured against the labeled evaluation set and hu
 - Improvement in renewal-sensitive customer support handling.
 - MVP pilot conversion rate from trial usage to paid or expanded deployment.
 
-## 11. Acceptance Criteria
+---
+
+## 17. Acceptance Criteria
 
 ### Ticket Intake and Classification
 
@@ -619,7 +902,9 @@ MVP success metrics should be measured against the labeled evaluation set and hu
 - Given a ticket with a known expected knowledge source, when retrieval runs, then the correct source should appear in the top three retrieved references for the target percentage of covered tickets.
 - Given a malicious or instruction-injection ticket, when the system processes it, then customer-provided instructions do not override safety, routing, escalation, or response-generation policies.
 
-## 12. Traceability from MRD Pain Points to Product Features
+---
+
+## 18. Traceability from MRD Pain Points to Product Features
 
 | MRD Pain Point | Product Feature | Related Requirements |
 | --- | --- | --- |
@@ -636,7 +921,9 @@ MVP success metrics should be measured against the labeled evaluation set and hu
 | Single-agent AI may hallucinate or produce unsupported answers | Retrieval-grounded drafting and low-confidence safeguards | FR-008, FR-017, FR-018, FR-019, NFR-001 |
 | Embedded helpdesk AI may be platform-constrained | Modular agent orchestration with mocked or simplified integrations | FR-034, NFR-014, NFR-015 |
 
-## 13. MVP Release Criteria
+---
+
+## 19. MVP Release Criteria
 
 The MVP is considered complete when:
 
@@ -646,3 +933,5 @@ The MVP is considered complete when:
 - It preserves human approval for all customer-facing responses.
 - It supports mocked or simplified integrations for ticket data, customer metadata, and knowledge base content.
 - It includes enough logging or stored output to evaluate classification, routing, escalation, and draft acceptance quality.
+- It includes basic safety handling for untrusted customer ticket content.
+- It provides structured outputs suitable for later automated evaluation.
