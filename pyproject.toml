@@ -15,9 +15,13 @@ crewai = [
 
 [project.scripts]
 support-crew-demo = "customer_support_crew.main:main"
+run_crew = "customer_support_crew.crewai_main:main"
 
 [tool.uv]
 package = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/customer_support_crew"]
 
 [build-system]
 requires = ["hatchling"]

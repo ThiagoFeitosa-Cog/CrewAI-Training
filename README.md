@@ -28,6 +28,12 @@ export OPENAI_API_KEY=your_key_here
 PYTHONPATH=src .venv/bin/python -m customer_support_crew.crewai_main
 ```
 
+CrewAI CLI can also invoke the same guarded entrypoint:
+
+```bash
+crewai run
+```
+
 If `OPENAI_API_KEY` is missing, the LLM entrypoint exits with setup guidance instead of pretending to run LLM agents.
 
 Run the lightweight backend validation tests:

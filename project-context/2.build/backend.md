@@ -77,6 +77,12 @@ Run the future LLM-ready CrewAI entrypoint:
 PYTHONPATH=src .venv/bin/python -m customer_support_crew.crewai_main
 ```
 
+The CrewAI CLI uses the same guarded entrypoint through the `run_crew` project script:
+
+```bash
+crewai run
+```
+
 Without `OPENAI_API_KEY`, this entrypoint exits with setup guidance. It does not silently fall back to deterministic logic or pretend to run LLM-backed agents.
 
 To prepare for a later LLM-backed run:
