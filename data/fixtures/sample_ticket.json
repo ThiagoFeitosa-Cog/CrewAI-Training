@@ -1,0 +1,19 @@
+{
+  "ticket_id": "TCK-1001",
+  "customer_id": "CUST-2048",
+  "company_name": "Northstar Analytics",
+  "channel": "ticket",
+  "plan_tier": "Enterprise",
+  "subject": "Urgent: API sync failed again before our renewal review",
+  "body": "Our Salesforce sync failed again this morning and our revenue team cannot work. This is the third time this month and leadership is frustrated. We need this fixed ASAP before our renewal review next week.",
+  "product_area": "Integrations",
+  "customer_metadata": {
+    "customer_id": "CUST-2048",
+    "company_name": "Northstar Analytics",
+    "plan_tier": "Enterprise",
+    "account_status": "active",
+    "assigned_csm": "Maya Chen",
+    "risk_level": "high"
+  }
+}
+

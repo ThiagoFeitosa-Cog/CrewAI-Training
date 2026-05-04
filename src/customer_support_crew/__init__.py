@@ -1,0 +1,6 @@
+"""Multi-Agent Customer Support Crew backend prototype."""
+
+__all__ = ["__version__"]
+
+__version__ = "0.1.0"
+

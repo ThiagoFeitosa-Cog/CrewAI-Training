@@ -11,14 +11,14 @@
 - [x] Build folder created: `project-context/2.build/`
 - [x] Official Build-stage SAD published: `project-context/2.build/sad.md`
 
-### Future Build Epics
+### Build Epics
 
-- [ ] Solution Architecture
+- [x] Solution Architecture
 - [ ] Setup
 - [ ] Frontend / Review Interface
-- [ ] Backend
+- [x] Backend
 - [ ] Integration
-- [ ] QA
+- [x] QA
 
 ## Phase 3: Deliver
 

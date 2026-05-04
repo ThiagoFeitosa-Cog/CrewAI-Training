@@ -1,0 +1,87 @@
+classify_ticket_task:
+  description: >
+    Review the support ticket subject, body, product area, and customer metadata.
+    Classify the ticket into one MVP category and identify the customer's primary intent.
+  expected_output: >
+    ClassificationResult with category, intent, product_area, confidence, rationale,
+    and needs_manual_review. Output must be structured and JSON-compatible.
+  agent: classification_agent
+
+analyze_sentiment_task:
+  description: >
+    Analyze the ticket for sentiment, urgency, frustration, business impact, churn risk,
+    and escalation language.
+  expected_output: >
+    SentimentResult with sentiment_label, urgency, risk_flags, confidence, and rationale.
+    Output must be structured and JSON-compatible.
+  agent: sentiment_analysis_agent
+  context:
+    - classify_ticket_task
+
+retrieve_knowledge_task:
+  description: >
+    Search the local approved knowledge base using the ticket and ClassificationResult.
+    Return only relevant source references and mark missing knowledge explicitly.
+  expected_output: >
+    RetrievalResult with sources, snippets, relevance_scores, retrieval_confidence,
+    missing_knowledge, and rationale. Output must be structured and JSON-compatible.
+  agent: knowledge_retrieval_agent
+  context:
+    - classify_ticket_task
+
+generate_draft_response_task:
+  description: >
+    Draft a support response for human review using the ticket, ClassificationResult,
+    SentimentResult, and RetrievalResult. Do not send the response automatically.
+  expected_output: >
+    DraftResponse with draft_text, source_ids, confidence, safety_notes,
+    and sendable_after_human_review. Output must be structured and JSON-compatible.
+  agent: solution_generation_agent
+  context:
+    - classify_ticket_task
+    - analyze_sentiment_task
+    - retrieve_knowledge_task
+
+recommend_routing_task:
+  description: >
+    Recommend the correct MVP support queue using ClassificationResult, SentimentResult,
+    customer metadata, and confidence signals.
+  expected_output: >
+    RoutingRecommendation with queue, confidence, rationale, and manual_review_required.
+    Output must be structured and JSON-compatible.
+  agent: routing_agent
+  context:
+    - classify_ticket_task
+    - analyze_sentiment_task
+
+recommend_escalation_task:
+  description: >
+    Recommend whether escalation is required using classification, sentiment, retrieval
+    confidence, routing recommendation, account risk, and complexity signals.
+  expected_output: >
+    EscalationRecommendation with escalate, severity, target, reason, and confidence.
+    Output must be structured and JSON-compatible.
+  agent: escalation_agent
+  context:
+    - classify_ticket_task
+    - analyze_sentiment_task
+    - retrieve_knowledge_task
+    - recommend_routing_task
+
+assemble_review_package_task:
+  description: >
+    Assemble all prior structured outputs into a ReviewPackage for human review. The
+    ReviewPackage is the human-in-the-loop checkpoint and must not send any response.
+  expected_output: >
+    ReviewPackage containing the original ticket, ClassificationResult, SentimentResult,
+    RetrievalResult, DraftResponse, RoutingRecommendation, EscalationRecommendation,
+    warnings, human_approval_required, and ready_for_human_review.
+  agent: escalation_agent
+  context:
+    - classify_ticket_task
+    - analyze_sentiment_task
+    - retrieve_knowledge_task
+    - generate_draft_response_task
+    - recommend_routing_task
+    - recommend_escalation_task
+
