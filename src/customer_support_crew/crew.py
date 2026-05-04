@@ -2,12 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from customer_support_crew.tools.crewai_local_knowledge_tool import CrewAILocalKnowledgeTool
+
 
 try:
     from crewai import Agent, Crew, Process, Task
     from crewai.project import CrewBase, agent, crew, task
+    CREWAI_AVAILABLE = True
 except ImportError:  # pragma: no cover - CrewAI is optional for the local deterministic MVP.
     Agent = Crew = Process = Task = None
+    CREWAI_AVAILABLE = False
 
     def CrewBase(cls):  # type: ignore[no-redef]
         return cls
@@ -42,7 +46,11 @@ class CustomerSupportCrew:
 
     @agent
     def knowledge_retrieval_agent(self):
-        return Agent(config=self.agents_config["knowledge_retrieval_agent"], verbose=True)
+        return Agent(
+            config=self.agents_config["knowledge_retrieval_agent"],
+            tools=[CrewAILocalKnowledgeTool()],
+            verbose=True,
+        )
 
     @agent
     def solution_generation_agent(self):
@@ -96,4 +104,3 @@ class CustomerSupportCrew:
             memory=False,
             output_log_file="logs/crew.log",
         )
-

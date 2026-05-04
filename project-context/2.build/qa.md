@@ -54,6 +54,70 @@ PASS
 
 ---
 
+## Build Backend with CrewAI Crew Validation
+
+### Scope
+
+- Persona: QA Engineer (`.cursor/agents/qa-eng.md`)
+- Date: 2026-05-04
+- Scope: CrewAI-aligned backend deliverable validation
+- Source artifacts:
+  - `project-context/2.build/sad.md`
+  - `project-context/2.build/backend.md`
+
+### Commands Executed
+
+```bash
+PYTHONPATH=src .venv/bin/python -m customer_support_crew.main
+PYTHONPATH=src .venv/bin/python -m unittest discover tests
+PYTHONPATH=src .venv/bin/python -m customer_support_crew.crewai_flow
+PYTHONPATH=src .venv/bin/python -m customer_support_crew.crewai_main
+```
+
+### Results
+
+- Deterministic backend command ran successfully and returned a complete `ReviewPackage`.
+- Unit tests passed: 8 tests.
+- CrewAI Flow deterministic command ran successfully without `OPENAI_API_KEY`.
+- Current environment does not have CrewAI installed, so the command used the clearly labeled `CustomerSupportCrewFlowFallback.kickoff_fallback()` path.
+- Future LLM CrewAI entrypoint exited cleanly without `OPENAI_API_KEY` and printed setup guidance.
+- CrewAI runtime is optional for the default path.
+- `.env.example` documents `OPENAI_API_KEY=`; `.env` was not modified.
+
+### CrewAI Concept Validation
+
+- YAML runtime agents are present in `src/customer_support_crew/config/agents.yaml`.
+- YAML runtime tasks are present in `src/customer_support_crew/config/tasks.yaml`.
+- `src/customer_support_crew/crew.py` demonstrates `CrewBase`, `@agent`, `@task`, `@crew`, `Agent`, `Task`, `Crew`, and `Process.sequential`.
+- `src/customer_support_crew/crewai_flow.py` demonstrates real `Flow`, `@start`, `@listen`, `self.state`, and inherited `Flow.kickoff()` when CrewAI is installed.
+- Without CrewAI installed, `src/customer_support_crew/crewai_flow.py` uses the explicit fallback runner and identifies the fallback in CLI output.
+- `src/customer_support_crew/crewai_main.py` prepares a future `crew.kickoff(inputs={...})` path.
+
+### Scope Validation
+
+No out-of-scope behavior was found:
+
+- No frontend/backend integration.
+- No CRM or ticketing integration.
+- No database persistence.
+- No authentication.
+- No deployment implementation.
+- No automatic customer-facing response.
+- No `Process.hierarchical`.
+- No `Process.consensual`.
+- No modification to `.cursor/agents/`.
+
+### Verdict
+
+PASS
+
+### Non-Blocking Follow-Up
+
+- Install optional CrewAI dependency and validate the LLM-backed path after an API key is intentionally configured.
+- Add LLM output parsing/validation hardening before relying on live CrewAI responses.
+
+---
+
 ## Frontend Module Validation
 
 ### Scope

@@ -12,6 +12,24 @@ PYTHONPATH=src .venv/bin/python -m customer_support_crew.main
 
 This assumes a virtual environment exists at `.venv`.
 
+Run the deterministic CrewAI Flow backend path:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m customer_support_crew.crewai_flow
+```
+
+This path uses real CrewAI `Flow.kickoff()` with `@start` and `@listen` when CrewAI is installed. If CrewAI is not installed, it uses the clearly labeled local fallback runner. Neither path requires `OPENAI_API_KEY`.
+
+Prepare the optional LLM-backed CrewAI runtime:
+
+```bash
+uv pip install -e '.[crewai]'
+export OPENAI_API_KEY=your_key_here
+PYTHONPATH=src .venv/bin/python -m customer_support_crew.crewai_main
+```
+
+If `OPENAI_API_KEY` is missing, the LLM entrypoint exits with setup guidance instead of pretending to run LLM agents.
+
 Run the lightweight backend validation tests:
 
 ```bash
@@ -26,15 +44,19 @@ Current local assets:
 - Knowledge base: `knowledge_base/support_kb.md`
 - Pydantic models: `src/customer_support_crew/models.py`
 - Flow prototype: `src/customer_support_crew/flow.py`
-- CrewAI-style config: `src/customer_support_crew/config/agents.yaml`, `src/customer_support_crew/config/tasks.yaml`
+- CrewAI crew definition: `src/customer_support_crew/crew.py`
+- CrewAI Flow runner with explicit fallback: `src/customer_support_crew/crewai_flow.py`
+- Future LLM CrewAI entrypoint: `src/customer_support_crew/crewai_main.py`
+- CrewAI config: `src/customer_support_crew/config/agents.yaml`, `src/customer_support_crew/config/tasks.yaml`
 
 Current limitations:
 
 - Local fixture execution only.
 - Deterministic keyword-based MVP logic for the runnable prototype.
 - No production ticketing or CRM integrations.
-- No frontend, authentication, database persistence, deployment, or autonomous customer response.
-- CrewAI runtime execution is scaffolded but not required for the local deterministic prototype.
+- No backend/frontend integration, authentication, database persistence, deployment, or autonomous customer response.
+- No customer-facing response is sent automatically.
+- LLM CrewAI runtime execution is prepared but optional; it requires CrewAI installation and `OPENAI_API_KEY`.
 
 ## Frontend Prototype
 
