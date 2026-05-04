@@ -15,7 +15,7 @@
 
 - [x] Solution Architecture
 - [ ] Setup
-- [ ] Frontend / Review Interface
+- [x] Frontend / Review Interface
 - [x] Backend
 - [ ] Integration
 - [x] QA

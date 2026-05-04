@@ -35,3 +35,35 @@ Current limitations:
 - No production ticketing or CRM integrations.
 - No frontend, authentication, database persistence, deployment, or autonomous customer response.
 - CrewAI runtime execution is scaffolded but not required for the local deterministic prototype.
+
+## Frontend Prototype
+
+The frontend module is a stubbed React/TypeScript review workflow. It does not call the backend yet.
+
+Run locally:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Validate the frontend:
+
+```bash
+cd frontend
+npm run build
+npm test
+```
+
+Frontend artifacts:
+
+- Functional spec: `frontend-funcional-spec.md`
+- Build notes: `project-context/2.build/frontend.md`
+- Stub services: `frontend/src/services/stubCrewService.ts`
+
+Current frontend limitations:
+
+- Stubbed services only.
+- No backend or CrewAI runtime integration yet.
+- No authentication, database persistence, deployment, streaming, cost dashboard, or automatic customer-facing response.
