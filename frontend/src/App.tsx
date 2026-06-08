@@ -1,8 +1,8 @@
-import { AlertTriangle, CheckCircle2, Clock, RotateCcw, Send, XCircle } from "lucide-react";
-import { FormEvent, useMemo, useState } from "react";
+import { AlertTriangle, CheckCircle2, Clock, RotateCcw, Save, Send, XCircle } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 
-import { getRunStatus, startRun } from "./services/stubCrewService";
-import type { CrewStatus, ReviewPackage, RunStatus, TicketInput } from "./types";
+import { getRunHistory, getRunStatus, startRun, submitReview } from "./services/apiCrewService";
+import type { CrewStatus, HumanReviewState, ReviewPackage, RunHistoryItem, RunStatus, TicketInput } from "./types";
 import "./styles.css";
 
 const seededTicket: TicketInput = {
@@ -35,12 +35,31 @@ function App() {
   const [lastUpdated, setLastUpdated] = useState<string>(new Date().toISOString());
   const [reviewPackage, setReviewPackage] = useState<ReviewPackage | null>(null);
   const [latestRun, setLatestRun] = useState<RunStatus | null>(null);
+  const [history, setHistory] = useState<RunHistoryItem[]>([]);
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [reviewDecision, setReviewDecision] = useState<HumanReviewState["status"]>("approved");
+  const [reviewerNotes, setReviewerNotes] = useState<string>("");
 
   const formattedUpdated = useMemo(() => new Date(lastUpdated).toLocaleString(), [lastUpdated]);
 
+  const refreshHistory = async () => {
+    setHistory(await getRunHistory());
+  };
+
+  useEffect(() => {
+    void refreshHistory().catch(() => undefined);
+  }, []);
+
   const updateTicket = (field: keyof TicketInput, value: string) => {
     setTicket((current) => ({ ...current, [field]: value }));
+  };
+
+  const applyRun = (run: RunStatus) => {
+    setLatestRun(run);
+    setReviewPackage(run.reviewPackage ?? null);
+    setStatus(run.status);
+    setLastUpdated(run.lastUpdated);
+    setReviewerNotes(run.humanReview.reviewerNotes);
   };
 
   const runCrew = async () => {
@@ -48,21 +67,23 @@ function App() {
       setErrorMessage("");
       setReviewPackage(null);
       setStatus("running");
+      setLastUpdated(new Date().toISOString());
+
       const started = await startRun(ticket);
-      setLatestRun(started);
-      setLastUpdated(started.lastUpdated);
+      applyRun(started);
 
       const completed = await getRunStatus(started.runId);
-      setLatestRun(completed);
-      setReviewPackage(completed.reviewPackage ?? null);
-      setStatus(completed.status);
-      setLastUpdated(completed.lastUpdated);
+      applyRun(completed);
+      await refreshHistory();
     } catch (error) {
       const message = error instanceof Error ? error.message : "The crew run failed.";
       const failedRun = {
         runId: latestRun?.runId ?? "not-started",
         status: "error" as CrewStatus,
+        runtimeMode: "deterministic",
         lastUpdated: new Date().toISOString(),
+        observabilitySteps: [],
+        humanReview: { status: "pending" as const, reviewerNotes: "", updatedAt: null },
         errorMessage: message,
       };
       setLatestRun(failedRun);
@@ -77,12 +98,21 @@ function App() {
     void runCrew();
   };
 
+  const submitHumanReview = async () => {
+    if (!latestRun) return;
+    const reviewed = await submitReview(latestRun.runId, reviewDecision, reviewerNotes);
+    applyRun(reviewed);
+    await refreshHistory();
+  };
+
   const reset = () => {
     setTicket(seededTicket);
     setStatus("idle");
     setReviewPackage(null);
     setLatestRun(null);
     setErrorMessage("");
+    setReviewerNotes("");
+    setReviewDecision("approved");
     setLastUpdated(new Date().toISOString());
   };
 
@@ -93,6 +123,7 @@ function App() {
           <StatusIcon status={status} />
           <strong>{statusCopy[status]}</strong>
           <span className="status-pill">{status}</span>
+          {latestRun && <span className="runtime-pill">{latestRun.runtimeMode}</span>}
         </div>
         <span>Last updated: {formattedUpdated}</span>
       </section>
@@ -103,14 +134,14 @@ function App() {
           <h1>Customer Support Review Workflow</h1>
         </div>
         <p>
-          Stubbed frontend module for reviewing a crew-generated support package. Drafts are for human
-          review only and are never sent automatically.
+          Integrated Week 4 MVP. The browser calls the local FastAPI backend, the backend creates a ReviewPackage, and
+          no customer-facing response is sent automatically.
         </p>
       </header>
 
       <div className="layout-grid">
         <section className="panel" aria-labelledby="ticket-form-heading">
-          <h2 id="ticket-form-heading">Support ticket input</h2>
+          <h2 id="ticket-form-heading">Customer Support Request</h2>
           <form onSubmit={handleSubmit} className="ticket-form">
             <div className="field-grid">
               <label>
@@ -158,26 +189,20 @@ function App() {
         </section>
 
         <section className="panel" aria-labelledby="history-heading">
-          <h2 id="history-heading">History</h2>
-          {latestRun ? (
-            <dl className="history-list">
-              <div>
-                <dt>Run ID</dt>
-                <dd>{latestRun.runId}</dd>
-              </div>
-              <div>
-                <dt>Ticket</dt>
-                <dd>{ticket.subject}</dd>
-              </div>
-              <div>
-                <dt>Status</dt>
-                <dd>{statusCopy[latestRun.status]}</dd>
-              </div>
-              <div>
-                <dt>Updated</dt>
-                <dd>{new Date(latestRun.lastUpdated).toLocaleString()}</dd>
-              </div>
-            </dl>
+          <h2 id="history-heading">Run History</h2>
+          {history.length ? (
+            <div className="history-stack">
+              {history.slice(0, 6).map((run) => (
+                <article className="history-card" key={run.runId}>
+                  <strong>{run.subject}</strong>
+                  <span>{run.runId}</span>
+                  <span>
+                    {run.status} · review {run.reviewStatus}
+                  </span>
+                  <small>{new Date(run.updatedAt).toLocaleString()}</small>
+                </article>
+              ))}
+            </div>
           ) : (
             <p>No crew runs yet. Use Run to create the latest review package.</p>
           )}
@@ -185,12 +210,52 @@ function App() {
       </div>
 
       <section className="panel results-panel" aria-labelledby="results-heading">
-        <h2 id="results-heading">Review package result</h2>
-        {status === "idle" && <p>Run the crew to generate a mocked review package.</p>}
-        {status === "running" && <p>Crew: running. Classification, retrieval, drafting, routing, and escalation are being simulated.</p>}
+        <h2 id="results-heading">Review Package</h2>
+        {status === "idle" && <p>Run the crew to generate a backend ReviewPackage.</p>}
+        {status === "running" && <p>Crew: running. The backend is classifying, retrieving, drafting, routing, and checking escalation.</p>}
         {status === "error" && <p className="inline-error">{errorMessage}</p>}
         {status === "done" && reviewPackage && <ReviewPackageView reviewPackage={reviewPackage} />}
       </section>
+
+      {latestRun && (
+        <div className="layout-grid lower-grid">
+          <section className="panel" aria-labelledby="activity-heading">
+            <h2 id="activity-heading">Agent Activity</h2>
+            <ol className="activity-list">
+              {latestRun.observabilitySteps.map((step) => (
+                <li key={`${step.name}-${step.timestamp}`}>
+                  <strong>{step.name.replace(/_/g, " ")}</strong>
+                  <span>{step.status}</span>
+                  <p>{step.summary}</p>
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          <section className="panel" aria-labelledby="human-review-heading">
+            <h2 id="human-review-heading">Human Review</h2>
+            <p className="approval-note">
+              Current review status: <strong>{latestRun.humanReview.status}</strong>. Nothing is sent to the customer.
+            </p>
+            <label>
+              Decision
+              <select value={reviewDecision} onChange={(event) => setReviewDecision(event.target.value as HumanReviewState["status"])}>
+                <option value="approved">Approve</option>
+                <option value="rejected">Reject</option>
+                <option value="needs_changes">Needs changes</option>
+              </select>
+            </label>
+            <label>
+              Reviewer notes
+              <textarea value={reviewerNotes} onChange={(event) => setReviewerNotes(event.target.value)} />
+            </label>
+            <button type="button" onClick={() => void submitHumanReview()}>
+              <Save aria-hidden="true" />
+              Submit review decision
+            </button>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
@@ -255,4 +320,3 @@ function ReviewPackageView({ reviewPackage }: { reviewPackage: ReviewPackage }) 
 }
 
 export default App;
-

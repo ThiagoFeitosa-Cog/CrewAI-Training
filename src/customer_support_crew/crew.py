@@ -1,9 +1,19 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from customer_support_crew.tools.crewai_local_knowledge_tool import CrewAILocalKnowledgeTool
 
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+CREWAI_RUNTIME_HOME = PROJECT_ROOT / ".crewai-home"
+
+os.environ.setdefault("CREWAI_DISABLE_TELEMETRY", "true")
+os.environ.setdefault("CREWAI_DISABLE_TRACKING", "true")
+os.environ.setdefault("CREWAI_TRACING_ENABLED", "false")
+os.environ.setdefault("OTEL_SDK_DISABLED", "true")
+os.environ["HOME"] = str(CREWAI_RUNTIME_HOME)
 
 try:
     from crewai import Agent, Crew, Process, Task
@@ -36,33 +46,40 @@ class CustomerSupportCrew:
     agents_config = str(CONFIG_DIR / "agents.yaml")
     tasks_config = str(CONFIG_DIR / "tasks.yaml")
 
+    def _agent_kwargs(self, agent_name: str) -> dict:
+        kwargs = {"config": self.agents_config[agent_name], "verbose": True}
+        model = os.getenv("MODEL")
+        if model:
+            kwargs["llm"] = model
+        return kwargs
+
     @agent
     def classification_agent(self):
-        return Agent(config=self.agents_config["classification_agent"], verbose=True)
+        return Agent(**self._agent_kwargs("classification_agent"))
 
     @agent
     def sentiment_analysis_agent(self):
-        return Agent(config=self.agents_config["sentiment_analysis_agent"], verbose=True)
+        return Agent(**self._agent_kwargs("sentiment_analysis_agent"))
 
     @agent
     def knowledge_retrieval_agent(self):
+        kwargs = self._agent_kwargs("knowledge_retrieval_agent")
         return Agent(
-            config=self.agents_config["knowledge_retrieval_agent"],
+            **kwargs,
             tools=[CrewAILocalKnowledgeTool()],
-            verbose=True,
         )
 
     @agent
     def solution_generation_agent(self):
-        return Agent(config=self.agents_config["solution_generation_agent"], verbose=True)
+        return Agent(**self._agent_kwargs("solution_generation_agent"))
 
     @agent
     def routing_agent(self):
-        return Agent(config=self.agents_config["routing_agent"], verbose=True)
+        return Agent(**self._agent_kwargs("routing_agent"))
 
     @agent
     def escalation_agent(self):
-        return Agent(config=self.agents_config["escalation_agent"], verbose=True)
+        return Agent(**self._agent_kwargs("escalation_agent"))
 
     @task
     def classify_ticket_task(self):

@@ -1,13 +1,24 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
 from customer_support_crew.flow import CustomerSupportFlow
 from customer_support_crew.models import ReviewPackage, SupportTicket
 
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+CREWAI_RUNTIME_HOME = PROJECT_ROOT / ".crewai-home"
+
+os.environ.setdefault("CREWAI_DISABLE_TELEMETRY", "true")
+os.environ.setdefault("CREWAI_DISABLE_TRACKING", "true")
+os.environ.setdefault("CREWAI_TRACING_ENABLED", "false")
+os.environ.setdefault("OTEL_SDK_DISABLED", "true")
+os.environ["HOME"] = str(CREWAI_RUNTIME_HOME)
 
 try:
     from crewai.flow.flow import Flow, listen, start
@@ -18,12 +29,12 @@ except ImportError:  # pragma: no cover - CrewAI is optional for the local deter
     CREWAI_FLOW_AVAILABLE = False
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_FIXTURE = PROJECT_ROOT / "data" / "fixtures" / "sample_ticket.json"
 DEFAULT_KNOWLEDGE_BASE = PROJECT_ROOT / "knowledge_base" / "support_kb.md"
 
 
 class CustomerSupportFlowState(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid4()))
     ticket: SupportTicket | None = None
     review_package: ReviewPackage | None = None
     status: str = "idle"
@@ -56,7 +67,7 @@ class _DeterministicFlowSteps:
 
 if CREWAI_FLOW_AVAILABLE:
 
-    class CustomerSupportCrewFlow(Flow):  # type: ignore[misc]
+    class CustomerSupportCrewFlow(Flow[CustomerSupportFlowState]):  # type: ignore[misc]
         """Real CrewAI Flow using inherited Flow.kickoff()."""
 
         def __init__(
@@ -64,10 +75,9 @@ if CREWAI_FLOW_AVAILABLE:
             fixture_path: str | Path = DEFAULT_FIXTURE,
             knowledge_base_path: str | Path = DEFAULT_KNOWLEDGE_BASE,
         ) -> None:
-            super().__init__()
+            super().__init__(tracing=False)
             self.fixture_path = Path(fixture_path)
             self.local_flow = CustomerSupportFlow(knowledge_base_path)
-            self.state = CustomerSupportFlowState()
 
         @start()
         def load_ticket(self) -> SupportTicket:

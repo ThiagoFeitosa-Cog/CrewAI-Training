@@ -50,6 +50,7 @@ const mockReviewPackage: ReviewPackage = {
     "Draft is for human review only and has not been sent.",
   ],
   humanApprovalRequired: true,
+  readyForHumanReview: true,
 };
 
 const delay = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -64,7 +65,10 @@ export async function startRun(ticket: TicketInput): Promise<RunStatus> {
   return {
     runId: MOCK_RUN_ID,
     status: "running",
+    runtimeMode: "stub",
     lastUpdated: new Date().toISOString(),
+    observabilitySteps: [],
+    humanReview: { status: "pending", reviewerNotes: "", updatedAt: null },
   };
 }
 
@@ -74,8 +78,10 @@ export async function getRunStatus(runId: string): Promise<RunStatus> {
   return {
     runId,
     status: "done",
+    runtimeMode: "stub",
     lastUpdated: new Date().toISOString(),
     reviewPackage: mockReviewPackage,
+    observabilitySteps: [],
+    humanReview: { status: "pending", reviewerNotes: "", updatedAt: null },
   };
 }
-

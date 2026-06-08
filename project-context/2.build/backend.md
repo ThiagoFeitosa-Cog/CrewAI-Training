@@ -85,11 +85,30 @@ crewai run
 
 Without `OPENAI_API_KEY`, this entrypoint exits with setup guidance. It does not silently fall back to deterministic logic or pretend to run LLM-backed agents.
 
+## Optional LLM Provider Configuration
+
+For the course/project Microsoft Foundry or another OpenAI-compatible endpoint, create a local `.env` with:
+
+```bash
+MODEL=
+OPENAI_API_BASE=
+OPENAI_API_KEY=
+```
+
+- `MODEL` is the provider/model identifier.
+- `OPENAI_API_BASE` is the OpenAI-compatible endpoint base URL.
+- `OPENAI_API_KEY` is the secret provider key.
+- Do not commit `.env`.
+- No key is required for deterministic mode.
+- `crewai run` uses the guarded LLM entrypoint and can attempt the LLM-backed CrewAI path when provider variables are configured.
+
 To prepare for a later LLM-backed run:
 
 ```bash
 uv pip install -e '.[crewai]'
-export OPENAI_API_KEY=your_key_here
+export MODEL=<provider_or_deployment_model_identifier>
+export OPENAI_API_BASE=<openai_compatible_endpoint_base_url>
+export OPENAI_API_KEY=<secret_key>
 PYTHONPATH=src .venv/bin/python -m customer_support_crew.crewai_main
 ```
 
@@ -106,7 +125,9 @@ PYTHONPATH=src .venv/bin/python -m unittest discover tests
 - `src/customer_support_crew/crew.py` demonstrates `CrewBase`, `@agent`, `@task`, `@crew`, `Agent`, `Task`, `Crew`, and `Process.sequential`.
 - The knowledge retrieval agent is prepared with a CrewAI-compatible local knowledge tool wrapper.
 - The LLM-ready entrypoint calls `crew.kickoff(inputs={...})` only when `OPENAI_API_KEY` is configured and CrewAI is installed.
-- The expected LLM path output remains JSON-compatible by task contract, but exact Pydantic output validation is a future integration hardening step.
+- Live LLM execution has been validated against the configured OpenAI-compatible Microsoft Foundry provider.
+- The live path maps `OPENAI_API_BASE` to `OPENAI_BASE_URL` at runtime, passes `MODEL` explicitly to CrewAI agents, and writes CrewAI runtime storage under ignored local `.crewai-home/`.
+- The expected LLM path output is ReviewPackage-like and JSON-compatible by task contract, but exact Pydantic output validation remains a future integration hardening step.
 
 ## Flow Notes
 
@@ -117,8 +138,17 @@ PYTHONPATH=src .venv/bin/python -m unittest discover tests
 - `@listen(...)` executes the deterministic local workflow and assembles the `ReviewPackage`.
 - The final `ReviewPackage` remains the human-in-the-loop checkpoint.
 
+## Live LLM Validation Notes
+
+- `PYTHONPATH=src .venv/bin/python -m customer_support_crew.crewai_main` reached the configured provider and completed all sequential CrewAI tasks.
+- `crewai run` reached the `run_crew` entrypoint and completed the same live LLM-backed path.
+- The local knowledge tool was invoked by the knowledge retrieval agent and returned approved local source references.
+- The final output preserved the human-in-the-loop checkpoint with `human_approval_required: true` and `ready_for_human_review: true`.
+- No customer-facing response is sent automatically.
+- `.env` was not modified or printed.
+
 ## Known Follow-Up Work
 
-- Install and validate the optional CrewAI runtime dependency before enabling LLM-backed agent execution.
 - Expand evaluation fixtures to cover 10 to 20 labeled tickets.
+- Add stricter LLM output normalization so live outputs match the Pydantic enum/value shapes exactly.
 - Add human review UI or endpoint in a later frontend/backend step.

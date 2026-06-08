@@ -118,6 +118,75 @@ PASS
 
 ---
 
+## Live LLM CrewAI Runtime Validation
+
+### Scope
+
+- Persona: QA Engineer (`.cursor/agents/qa-eng.md`)
+- Date: 2026-06-07
+- Scope: Live LLM-backed CrewAI runtime validation with configured OpenAI-compatible Microsoft Foundry provider
+
+### Environment Safety
+
+- `.env` exists and is ignored by Git.
+- `MODEL`, `OPENAI_API_BASE`, and `OPENAI_API_KEY` are present.
+- `OPENAI_API_KEY` was not printed.
+- `.env` was not modified.
+
+### Commands Executed
+
+```bash
+PYTHONPATH=src .venv/bin/python -m customer_support_crew.main
+PYTHONPATH=src .venv/bin/python -m customer_support_crew.crewai_flow
+PYTHONPATH=src .venv/bin/python -m unittest discover tests
+PYTHONPATH=src .venv/bin/python -m compileall src/customer_support_crew tests
+PYTHONPATH=src .venv/bin/python -m customer_support_crew.crewai_main
+crewai run
+```
+
+### Results
+
+- Deterministic backend command returned a complete `ReviewPackage`.
+- CrewAI Flow command ran through real inherited `Flow.kickoff()` with deterministic local logic.
+- Unit tests passed: 11 tests.
+- Compile check passed.
+- Live `customer_support_crew.crewai_main` completed all sequential CrewAI tasks through the configured provider.
+- `crewai run` reached `run_crew` and completed all sequential CrewAI tasks.
+- Live output was ReviewPackage-like and preserved `human_approval_required: true` and `ready_for_human_review: true`.
+- No automatic customer-facing response was sent.
+
+### Fixes Validated
+
+- CrewAI runtime storage is redirected to ignored local `.crewai-home/`.
+- `OPENAI_API_BASE` is mapped to `OPENAI_BASE_URL` at runtime.
+- `MODEL` is passed explicitly to runtime CrewAI agents.
+- Runtime task descriptions now include the actual fixture fields.
+- Local knowledge tool accepts flexible query input and returned approved local source references.
+
+### Scope Validation
+
+No out-of-scope behavior was found:
+
+- No frontend/backend integration.
+- No CRM or ticketing integration.
+- No database persistence.
+- No authentication.
+- No deployment implementation.
+- No automatic customer-facing response.
+- No `Process.hierarchical`.
+- No `Process.consensual`.
+- No modification to `.cursor/agents/`.
+
+### Verdict
+
+PASS WITH NON-BLOCKING CONCERNS
+
+### Non-Blocking Follow-Up
+
+- Live LLM outputs are JSON-compatible but not yet normalized into exact Pydantic enum/value shapes; add output normalization before treating live results as strict application data.
+
+---
+
 ## Frontend Module Validation
 
 ### Scope
@@ -168,3 +237,79 @@ PASS
 
 - Connect `frontend/src/services/stubCrewService.ts` to the backend during the Integration epic.
 - Add broader browser/device accessibility checks in a later QA pass.
+
+---
+
+## Week 4 Full-Stack Integration Validation
+
+### Scope
+
+- Persona: QA Engineer (`.cursor/agents/qa-eng.md`)
+- Date: 2026-06-08
+- Scope: FastAPI + React local full-stack integration
+
+### Commands Executed
+
+```bash
+PYTHONPATH=src .venv/bin/python -m customer_support_crew.main
+PYTHONPATH=src .venv/bin/python -m customer_support_crew.crewai_flow
+PYTHONPATH=src .venv/bin/python -m unittest discover tests
+PYTHONPATH=src .venv/bin/python -m compileall src/customer_support_crew tests
+npm run build
+npm test
+PYTHONPATH=src .venv/bin/uvicorn customer_support_crew.api:app --host 127.0.0.1 --port 8000
+curl -s http://127.0.0.1:8000/health
+curl -s -X POST http://127.0.0.1:8000/api/runs ...
+curl -s http://127.0.0.1:8000/api/runs/{run_id}
+curl -s -X POST http://127.0.0.1:8000/api/runs/{run_id}/review ...
+curl -s http://127.0.0.1:8000/api/runs
+```
+
+### Backend Results
+
+- Deterministic CLI backend returned a complete `ReviewPackage`.
+- FastAPI server started on `http://127.0.0.1:8000`.
+- `GET /health` returned status `ok` and runtime mode `deterministic`.
+- `POST /api/runs` created a run, processed the ticket, returned a ReviewPackage, and stored local JSON.
+- `GET /api/runs/{run_id}` returned the persisted run record.
+- `POST /api/runs/{run_id}/review` persisted human review state.
+- `GET /api/runs` returned run history.
+
+### Frontend Results
+
+- Production build passed.
+- Frontend tests passed: 3 tests.
+- Frontend service now calls the FastAPI backend through `apiCrewService.ts`.
+- UI renders ReviewPackage, Agent Activity, Human Review controls, and Run History.
+- Human review decision is submitted through the backend API.
+
+### Full-Stack Results
+
+- Backend API and Vite frontend were started locally.
+- Frontend dev server responded at `http://127.0.0.1:5173/`.
+- Backend API responded at `http://127.0.0.1:8000/`.
+- Payload shapes were validated by frontend tests and backend `curl` checks.
+
+### Scope Validation
+
+No out-of-scope behavior was found:
+
+- No CRM or ticketing integration.
+- No database persistence.
+- No authentication.
+- No deployment implementation.
+- No real notification integration.
+- No automatic customer-facing response.
+- No `Process.hierarchical`.
+- No `Process.consensual`.
+- No `.env` changes.
+- No `.cursor/agents/` changes.
+
+### Verdict
+
+PASS
+
+### Non-Blocking Follow-Up
+
+- Add browser automation when available for visual click-through validation.
+- Add exact Pydantic normalization for optional live LLM output before using live mode as the default API runtime.

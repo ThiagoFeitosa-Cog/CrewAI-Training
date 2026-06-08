@@ -16,6 +16,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -167,6 +168,7 @@ label {
 }
 
 input,
+select,
 textarea {
   border: 1px solid #b9c7cf;
   border-radius: 6px;
@@ -253,6 +255,58 @@ article small {
   padding: 10px;
 }
 
+.runtime-pill {
+  background: #e8f3f8;
+  border-radius: 999px;
+  color: #22577a;
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 3px 10px;
+}
+
+.history-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.history-card {
+  display: grid;
+  gap: 4px;
+}
+
+.history-card span,
+.history-card small {
+  color: #506672;
+  overflow-wrap: anywhere;
+}
+
+.lower-grid {
+  align-items: start;
+}
+
+.activity-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 22px;
+}
+
+.activity-list li {
+  border-bottom: 1px solid #e4eaee;
+  padding-bottom: 10px;
+}
+
+.activity-list span {
+  background: #dff4e8;
+  border-radius: 999px;
+  color: #17613a;
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 800;
+  margin-left: 8px;
+  padding: 2px 8px;
+}
+
 @media (max-width: 860px) {
   .page-header,
   .layout-grid,
@@ -271,4 +325,3 @@ article small {
     gap: 8px;
   }
 }
-

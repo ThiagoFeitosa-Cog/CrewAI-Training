@@ -17,7 +17,7 @@
 - [ ] Setup
 - [x] Frontend / Review Interface
 - [x] Backend
-- [ ] Integration
+- [x] Integration
 - [x] QA
 
 ## Phase 3: Deliver

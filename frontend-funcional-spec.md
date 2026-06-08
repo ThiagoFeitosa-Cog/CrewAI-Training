@@ -4,7 +4,7 @@
 
 The frontend module provides a simple human review interface for the Multi-Agent Customer Support Crew MVP. It demonstrates the critical workflow: customer support ticket input, run crew, and review package result.
 
-The frontend uses stubbed services only. It does not call the backend runtime or CrewAI execution yet.
+The frontend now calls the local FastAPI backend for Week 4 integration. The default backend runtime remains deterministic and does not require paid LLM usage.
 
 ## User Journey
 
@@ -13,11 +13,12 @@ The frontend uses stubbed services only. It does not call the backend runtime or
 3. The support agent can edit the ticket fields.
 4. The support agent clicks Run.
 5. The status changes from idle to running.
-6. The stubbed crew service returns a mocked run status.
+6. The backend creates a local run and returns status, observability steps, and a ReviewPackage.
 7. The status changes to done.
-8. The app displays a mocked review package for human review.
+8. The app displays a backend-generated ReviewPackage for human review.
 9. The support agent can inspect the draft, routing, escalation, retrieved sources, and warnings.
-10. The support agent can click Reset to return to the seeded input state.
+10. The support agent can approve, reject, or request changes without sending any customer-facing response.
+11. The support agent can click Reset to return to the seeded input state.
 
 ## Inputs
 
@@ -36,9 +37,9 @@ When the user clicks Run:
 
 - The UI validates that subject and message are present.
 - The UI transitions to `running`.
-- `startRun` is called with the current ticket input.
+- `POST /api/runs` is called with the current ticket input.
 - `getRunStatus` is called with the returned run ID.
-- The UI transitions to `done` and displays the mocked review package.
+- The UI transitions to `done` and displays the backend ReviewPackage.
 
 ## Results
 
@@ -64,7 +65,7 @@ The MVP shows a lightweight History section with the latest run:
 - Final status.
 - Last updated timestamp.
 
-No persistence is included.
+Run history is loaded from `GET /api/runs` and backed by local JSON records under `data/runs/`.
 
 ## Status Model
 
@@ -98,7 +99,10 @@ Status labels:
 - `runId`
 - `status`
 - `lastUpdated`
+- `runtimeMode`
 - `reviewPackage`
+- `observabilitySteps`
+- `humanReview`
 - `errorMessage`
 
 ### ReviewPackage
@@ -111,15 +115,18 @@ Status labels:
 - `escalationRecommendation`
 - `warnings`
 - `humanApprovalRequired`
+- `readyForHumanReview`
+
+### API Endpoints
+
+- `POST /api/runs`
+- `GET /api/runs/{runId}`
+- `GET /api/runs`
+- `POST /api/runs/{runId}/review`
 
 ## Stub Services
 
-The frontend provides:
-
-- `startRun(ticketInput)`: returns a fixed mock run ID and running status.
-- `getRunStatus(runId)`: returns a fixed completed run with mocked review package data.
-
-These services are the future integration points for the backend/CrewAI runtime.
+`stubCrewService.ts` remains only as a legacy fallback/reference. The active Week 4 integration uses `apiCrewService.ts`.
 
 ## Accessibility Notes
 
@@ -134,8 +141,8 @@ Advanced accessibility, focus management, and resilience behavior are deferred t
 
 ## Current Limitations
 
-- Stubbed services only.
-- No real backend or CrewAI runtime connection.
+- Deterministic backend runtime by default.
+- Live CrewAI LLM path remains optional and guarded.
 - No authentication.
 - No database persistence.
 - No deployment configuration.
@@ -146,10 +153,9 @@ Advanced accessibility, focus management, and resilience behavior are deferred t
 
 | Item | Status | Note |
 | --- | --- | --- |
-| Critical workflow documented | Done | Ticket input to mocked review package result. |
+| Critical workflow documented | Done | Ticket input to backend ReviewPackage result. |
 | Status model documented | Done | Uses only idle, running, done, and error. |
-| Stub service contracts documented | Done | `startRun` and `getRunStatus`. |
+| API service contracts documented | Done | `POST /api/runs`, status, history, and review endpoints. |
 | Human review constraint documented | Done | Draft is never sent automatically. |
-| Future backend integration point identified | Done | Stub services will be replaced by integration layer. |
+| Backend integration point implemented | Done | Frontend uses FastAPI service through `apiCrewService.ts`. |
 | Out-of-scope items listed | Done | No auth, DB, deployment, streaming, or real API integration. |
-

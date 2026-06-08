@@ -45,13 +45,39 @@ export interface ReviewPackage {
   };
   warnings: string[];
   humanApprovalRequired: boolean;
+  readyForHumanReview: boolean;
 }
 
 export interface RunStatus {
   runId: string;
   status: CrewStatus;
+  runtimeMode: string;
   lastUpdated: string;
   reviewPackage?: ReviewPackage;
+  observabilitySteps: AgentStep[];
+  humanReview: HumanReviewState;
   errorMessage?: string;
 }
 
+export interface AgentStep {
+  name: string;
+  status: "pending" | "running" | "completed" | "error";
+  summary: string;
+  timestamp: string;
+}
+
+export interface HumanReviewState {
+  status: "pending" | "approved" | "rejected" | "needs_changes";
+  reviewerNotes: string;
+  updatedAt?: string | null;
+}
+
+export interface RunHistoryItem {
+  runId: string;
+  status: string;
+  runtimeMode: string;
+  subject: string;
+  reviewStatus: HumanReviewState["status"];
+  createdAt: string;
+  updatedAt: string;
+}
