@@ -309,9 +309,10 @@ Advanced accessibility, focus management, and resilience behavior are deferred t
 
 ## Current Limitations
 
-- Deterministic backend runtime by default.
-- CrewAI Flow and CrewAI LLM modes are explicit runtime choices.
-- CrewAI LLM mode requires configured provider values and may return safe runtime output instead of parsed ReviewPackage.
+- The app now opens with a cinematic landing page before the operational dashboard.
+- CrewAI LLM is the primary/default demo runtime.
+- Deterministic backend runtime and CrewAI Flow remain available as advanced fallback modes.
+- CrewAI LLM mode requires configured provider values. If parsing fails, the UI preserves safe runtime output and shows the parsing state.
 - No authentication.
 - No database persistence.
 - No deployment configuration.
@@ -324,13 +325,14 @@ Advanced accessibility, focus management, and resilience behavior are deferred t
 | Item | Status | Note |
 | --- | --- | --- |
 | Critical workflow documented | Done | Ticket input to backend ReviewPackage result. |
+| Landing experience documented | Done | Cinematic landing introduces the CrewAI support workflow before the dashboard. |
 | Status model documented | Done | Uses only idle, running, done, and error. |
 | API service contracts documented | Done | `POST /api/runs`, status, history, and review endpoints. |
 | Observability contracts documented | Done | Events, metrics, summary, run_id, and trace_id are documented. |
 | Runtime selector documented | Done | Local deterministic, CrewAI Flow, and CrewAI LLM modes are documented. |
-| Dashboard view documented | Done | Initial product overview and recent runs are documented. |
-| Run Details view documented | Done | Executive summary, agent results, human review, and observability are documented. |
-| Progressive disclosure documented | Done | Metadata, result details, and observability are collapsible. |
+| Dashboard view documented | Done | Initial product overview, KPIs, CTA, and recent runs are documented. |
+| Run Details view documented | Done | Decision summary, draft review, human review, compact CrewAI confirmation, and secondary details are documented. |
+| Progressive disclosure documented | Done | Agent details, CrewAI execution details, metadata, warnings, and observability are modal/collapsible. |
 | History filters documented | Done | All, Pending Review, Approved, Rejected, and Escalated filters are documented. |
 | Human review constraint documented | Done | Draft is never sent automatically. |
 | Backend integration point implemented | Done | Frontend uses FastAPI service through `apiCrewService.ts`. |

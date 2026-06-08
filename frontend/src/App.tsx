@@ -11,7 +11,10 @@ import {
   Send,
   X,
 } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import Lenis from "lenis";
+import { CSSProperties, FormEvent, ReactNode, useEffect, useRef, useState } from "react";
 
 import {
   getApiHealth,
@@ -33,6 +36,8 @@ import type {
   TicketInput,
 } from "./types";
 import "./styles.css";
+
+gsap.registerPlugin(ScrollTrigger);
 
 type AppView = "dashboard" | "new-run" | "run-details" | "history";
 type HistoryFilter = "all" | "pending" | "approved" | "rejected" | "escalated";
@@ -66,7 +71,34 @@ const reviewOptions: Array<{ value: HumanReviewState["status"]; label: string }>
   { value: "needs_changes", label: "Needs changes" },
 ];
 
+const orchestrationSteps = [
+  { label: "Ticket received", detail: "One customer issue enters the review workflow." },
+  { label: "Classification", detail: "The crew identifies issue type and support category." },
+  { label: "Sentiment", detail: "Urgency, frustration, and account risk are assessed." },
+  { label: "Knowledge retrieval", detail: "Relevant local support guidance is gathered." },
+  { label: "Draft response", detail: "A safe agent-facing answer is prepared." },
+  { label: "Routing", detail: "The right queue or team is recommended." },
+  { label: "Escalation", detail: "High-risk cases are flagged for leadership attention." },
+  { label: "Human review", detail: "A support lead approves, rejects, or requests changes." },
+];
+
+const loadingPhrases = [
+  "Classification agent is reading the room...",
+  "Sentiment agent is detecting customer frustration...",
+  "Knowledge retrieval agent is checking approved sources...",
+  "Drafting agent is choosing careful words...",
+  "Routing agent is finding the right queue...",
+  "Escalation agent is looking for risk signals...",
+  "Review package is being assembled for a human...",
+  "The agents are debating responsibly...",
+  "Nobody is sending anything without approval...",
+  "Tiny agents, big support decision...",
+];
+
+const loadingSteps = ["Classify", "Sentiment", "Retrieve", "Draft", "Route", "Escalate", "ReviewPackage"];
+
 function App() {
+  const [hasEnteredApp, setHasEnteredApp] = useState(false);
   const [view, setView] = useState<AppView>("dashboard");
   const [ticket, setTicket] = useState<TicketInput>(seededTicket);
   const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("crewai_llm");
@@ -195,6 +227,16 @@ function App() {
     setTicket((current) => ({ ...current, [field]: value }));
   };
 
+  const launchDemo = () => {
+    setHasEnteredApp(true);
+    setView("dashboard");
+    window.scrollTo({ top: 0, behavior: "auto" });
+  };
+
+  if (!hasEnteredApp) {
+    return <LandingPage onLaunch={launchDemo} />;
+  }
+
   return (
     <main className={isSidebarCollapsed ? "app-frame sidebar-is-collapsed" : "app-frame sidebar-is-expanded"}>
       <TopNav
@@ -261,6 +303,310 @@ function App() {
           />
         )}
       </div>
+      {status === "running" && <RunLoadingModal runtimeMode={runtimeMode} />}
+    </main>
+  );
+}
+
+function RunLoadingModal({ runtimeMode }: { runtimeMode: RuntimeMode }) {
+  const [phraseIndex, setPhraseIndex] = useState(0);
+  const runtimeCopy = loadingRuntimeCopy(runtimeMode);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setPhraseIndex((current) => (current + 1) % loadingPhrases.length);
+    }, 2100);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="run-loading-overlay" aria-live="polite">
+      <section
+        className="run-loading-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="run-loading-title"
+        aria-describedby="run-loading-description"
+      >
+        <div className="agent-orbit-loader" aria-hidden="true">
+          <span className="agent-orbit-center" />
+          <span className="agent-orbit-dot agent-orbit-dot-one" />
+          <span className="agent-orbit-dot agent-orbit-dot-two" />
+          <span className="agent-orbit-dot agent-orbit-dot-three" />
+          <span className="agent-orbit-dot agent-orbit-dot-four" />
+        </div>
+        <div className="run-loading-copy">
+          <p className="eyebrow">{runtimeCopy.kicker}</p>
+          <h2 id="run-loading-title">{runtimeCopy.title}</h2>
+          <p id="run-loading-description">
+            Analyzing the ticket, drafting a response, and preparing everything for human review. Nothing is sent automatically.
+          </p>
+          <p className="loading-phrase">{loadingPhrases[phraseIndex]}</p>
+        </div>
+        <div className="loading-step-list" aria-label="Typical workflow">
+          <span className="loading-step-heading">Typical workflow</span>
+          <div>
+            {loadingSteps.map((step, index) => (
+              <span className="loading-step" style={{ "--step-index": index } as CSSProperties} key={step}>
+                {step}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function LandingPage({ onLaunch }: { onLaunch: () => void }) {
+  const pageRef = useRef<HTMLDivElement | null>(null);
+  const orchestrationRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!pageRef.current || typeof window === "undefined") return;
+
+    const reducedMotion = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let lenis: Lenis | null = null;
+    let animationFrame = 0;
+    const mm = gsap.matchMedia();
+
+    if (!reducedMotion) {
+      lenis = new Lenis({
+        duration: 1.25,
+        smoothWheel: true,
+        touchMultiplier: 1.05,
+        wheelMultiplier: 0.9,
+      });
+      lenis.on("scroll", ScrollTrigger.update);
+
+      const raf = (time: number) => {
+        lenis?.raf(time);
+        animationFrame = requestAnimationFrame(raf);
+      };
+      animationFrame = requestAnimationFrame(raf);
+    }
+
+    const context = gsap.context(() => {
+      if (reducedMotion) return;
+
+      gsap.from(".landing-kicker", {
+        autoAlpha: 0,
+        duration: 0.8,
+        ease: "power3.out",
+        y: 22,
+      });
+      gsap.from(".landing-headline .line", {
+        autoAlpha: 0,
+        delay: 0.08,
+        duration: 1.05,
+        ease: "expo.out",
+        stagger: 0.16,
+        yPercent: 88,
+      });
+      gsap.from(".landing-subtitle, .landing-actions, .landing-badges", {
+        autoAlpha: 0,
+        delay: 0.62,
+        duration: 0.9,
+        ease: "power3.out",
+        stagger: 0.14,
+        y: 28,
+      });
+      gsap.to(".scroll-indicator", {
+        autoAlpha: 0,
+        ease: "power3.out",
+        scrollTrigger: {
+          end: "45% top",
+          scrub: true,
+          start: "top top",
+          trigger: ".landing-hero",
+        },
+        y: 28,
+      });
+
+      mm.add("(min-width: 900px)", () => {
+        const timeline = gsap.timeline({
+          scrollTrigger: {
+            end: "+=1500",
+            pin: true,
+            scrub: 1,
+            start: "top top",
+            trigger: ".orchestration-section",
+          },
+        });
+
+        timeline
+          .from(".orchestration-copy", {
+            autoAlpha: 0,
+            duration: 0.95,
+            ease: "power3.out",
+            x: -44,
+          })
+          .from(
+            ".agent-node",
+            {
+              autoAlpha: 0,
+              duration: 0.95,
+              ease: "power3.out",
+              scale: 0.94,
+              stagger: 0.2,
+              y: 72,
+            },
+            0.1,
+          )
+          .to(
+            ".orchestration-map",
+            {
+              duration: 1.4,
+              ease: "expo.inOut",
+              scale: 1.035,
+              xPercent: -5,
+            },
+            0.15,
+          );
+      });
+
+      mm.add("(max-width: 899px)", () => {
+        gsap.from(".agent-node", {
+          autoAlpha: 0,
+          duration: 0.78,
+          ease: "power3.out",
+          scrollTrigger: {
+            start: "top 74%",
+            trigger: ".orchestration-section",
+          },
+          stagger: 0.12,
+          y: 34,
+        });
+      });
+    }, pageRef);
+
+    ScrollTrigger.refresh();
+
+    return () => {
+      context.revert();
+      mm.revert();
+      if (animationFrame) cancelAnimationFrame(animationFrame);
+      lenis?.destroy();
+    };
+  }, []);
+
+  const scrollToOrchestration = () => {
+    orchestrationRef.current?.scrollIntoView({
+      behavior:
+        typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "auto"
+          : "smooth",
+      block: "start",
+    });
+  };
+
+  return (
+    <main className="landing-page" ref={pageRef}>
+      <section className="landing-hero" aria-label="Multi-agent support crew landing">
+        <div className="landing-ambient landing-ambient-one" aria-hidden="true" />
+        <div className="landing-ambient landing-ambient-two" aria-hidden="true" />
+        <div className="landing-grid" aria-hidden="true" />
+        <div className="landing-hero-inner">
+          <p className="landing-kicker">CrewAI customer support command layer</p>
+          <h1 className="landing-headline">
+            <span className="line">Run the support crew.</span>
+            <span className="line">Review before it reaches the customer.</span>
+          </h1>
+          <p className="landing-subtitle">
+            A multi-agent CrewAI workflow classifies tickets, evaluates risk, retrieves knowledge, drafts a response, and
+            keeps every customer-facing action behind human approval.
+          </p>
+          <div className="landing-actions">
+            <button className="landing-primary" type="button" onClick={onLaunch}>
+              Launch Demo
+            </button>
+            <button className="landing-secondary" type="button" onClick={scrollToOrchestration}>
+              See how it works
+            </button>
+          </div>
+          <div className="landing-badges" aria-label="Product highlights">
+            <span>YAML-defined agents</span>
+            <span>Sequential process</span>
+            <span>Human approval checkpoint</span>
+          </div>
+        </div>
+        <div className="scroll-indicator" aria-hidden="true">
+          <span />
+          Scroll
+        </div>
+      </section>
+
+      <section className="orchestration-section" ref={orchestrationRef}>
+        <div className="orchestration-copy">
+          <p className="landing-section-kicker">Multi-agent orchestration</p>
+          <h2>One ticket moves through a disciplined CrewAI review path.</h2>
+          <p>
+            The demo keeps the story visible: each specialist contributes a bounded output, and the final package waits for
+            a human decision.
+          </p>
+        </div>
+        <div className="orchestration-map" aria-label="CrewAI orchestration sequence">
+          {orchestrationSteps.map((step, index) => (
+            <article className="agent-node" key={step.label}>
+              <span className="agent-index">{String(index + 1).padStart(2, "0")}</span>
+              <h3>{step.label}</h3>
+              <p>{step.detail}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="landing-split-section">
+        <div>
+          <p className="landing-section-kicker">Human review built in</p>
+          <h2>Governance is the product behavior, not an afterthought.</h2>
+        </div>
+        <div className="landing-feature-grid">
+          <article>
+            <span>01</span>
+            <h3>No automatic send</h3>
+            <p>Drafts remain internal until a support lead approves, rejects, or requests changes.</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Escalation clarity</h3>
+            <p>High-risk tickets surface severity, target owner, and rationale before the response is used.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Operator control</h3>
+            <p>The crew produces evidence and recommendations; the human owns the final customer action.</p>
+          </article>
+        </div>
+      </section>
+
+      <section className="landing-observability-section">
+        <div className="observability-card">
+          <p className="landing-section-kicker">Observable by design</p>
+          <h2>Every run carries a correlation trail.</h2>
+          <p>
+            Run ID, trace ID, event timeline, and runtime metrics make the workflow explainable for demos, debugging, and
+            stakeholder review.
+          </p>
+        </div>
+        <div className="observability-mini-grid" aria-label="Observability concepts">
+          <span>run_id</span>
+          <span>trace_id</span>
+          <span>agent timeline</span>
+          <span>step durations</span>
+          <span>review status</span>
+          <span>runtime mode</span>
+        </div>
+      </section>
+
+      <section className="landing-final-cta">
+        <p className="landing-section-kicker">Ready for the live workflow</p>
+        <h2>Launch the CrewAI demo console.</h2>
+        <button className="landing-primary" type="button" onClick={onLaunch}>
+          Launch CrewAI Demo
+        </button>
+      </section>
     </main>
   );
 }
@@ -417,7 +763,7 @@ function DashboardView({
         <div>
           <p className="eyebrow">Operations cockpit</p>
           <h2>Support review command center</h2>
-          <p>Monitor multi-agent ticket analysis, review risk, and keep every response under human control.</p>
+          <p>Review support runs, spot escalations, and start the next CrewAI analysis.</p>
         </div>
         <button className="primary-action" onClick={onStart}>
           <Send aria-hidden="true" />
@@ -428,20 +774,13 @@ function DashboardView({
       <div className="hero-panel">
         <div>
           <p className="eyebrow">Support operations workspace</p>
-          <h2>Multi-agent support triage with human review</h2>
-          <p>
-            Classify tickets, assess customer risk, draft a response, and route escalations while keeping every customer message under human approval.
-          </p>
+          <h2>CrewAI support triage, held for human approval</h2>
+          <p>Run the crew, review the draft, and decide before anything reaches the customer.</p>
           <div className="hero-tags">
             <span>Human-in-the-loop</span>
-            <span>Local-first demo</span>
-            <span>Agent activity visible</span>
+            <span>CrewAI runtime</span>
+            <span>ReviewPackage output</span>
           </div>
-        </div>
-        <div className="hero-orbit" aria-hidden="true">
-          <span />
-          <span />
-          <span />
         </div>
       </div>
 
@@ -453,29 +792,8 @@ function DashboardView({
         <Metric tone={latestRun?.status === "error" || latest?.status === "error" ? "red" : "blue"} label="Latest status" value={latestRun?.status ?? latest?.status ?? "none"} />
       </div>
 
-      <section className="attention-card">
-        <SectionHeader title="Needs Attention" subtitle="Runs that should be reviewed before any customer-facing action." />
-        <div className="attention-grid">
-          <div>
-            <span className="attention-label">Pending review</span>
-            <strong>{pendingReviews}</strong>
-            <p>Drafts waiting for a support lead decision.</p>
-          </div>
-          <div>
-            <span className="attention-label">Escalated risk</span>
-            <strong>{escalatedCases}</strong>
-            <p>Cases flagged for priority routing or customer success follow-up.</p>
-          </div>
-          <div>
-            <span className="attention-label">Latest activity</span>
-            <strong>{latest ? statusLabel(latest.status) : "No runs"}</strong>
-            <p>{latest?.subject ?? "Start a new support run to populate the cockpit."}</p>
-          </div>
-        </div>
-      </section>
-
       <section className="board-card">
-        <SectionHeader title="Recent Runs" subtitle="Latest support analyses and human review state." />
+        <SectionHeader title="Recent Runs" subtitle="Latest analyses and review state." />
         <RunsTable runs={history.slice(0, 6)} onOpenRun={onOpenRun} />
       </section>
     </section>
@@ -514,7 +832,7 @@ function NewRunView({
         <div>
         <p className="eyebrow">New Support Run</p>
         <h2>Start a focused ticket analysis</h2>
-        <p>Run the YAML-defined CrewAI agents through the sequential crew process and stop at the human approval checkpoint.</p>
+        <p>Submit one ticket to the CrewAI runtime and review the result before sending anything.</p>
         </div>
       </div>
 
@@ -567,15 +885,15 @@ function NewRunView({
               <span>Step 2</span>
               <div>
                 <h3>Choose CrewAI runtime</h3>
-                <p>CrewAI LLM is the primary product path. Fallback modes stay available for offline debugging.</p>
+              <p>CrewAI LLM is recommended for the demo.</p>
               </div>
             </div>
             <fieldset className="runtime-selector" aria-label="Runtime Mode">
               <legend>Runtime Mode</legend>
               {providerConfigured === false && (
                 <p className="runtime-warning">
-                  Provider configuration was not detected. CrewAI LLM can still be selected, but the run will fail safely until MODEL,
-                  OPENAI_API_BASE, and OPENAI_API_KEY are configured.
+                  Provider configuration was not detected. CrewAI LLM will fail safely until MODEL, OPENAI_API_BASE, and
+                  OPENAI_API_KEY are configured.
                 </p>
               )}
               <div className="runtime-options runtime-options-primary">
@@ -632,17 +950,17 @@ function NewRunView({
           </form>
         </div>
         <aside className="helper-card">
-          <p className="eyebrow">How this works</p>
-          <h3>One ticket, one guided review.</h3>
+          <p className="eyebrow">Flow</p>
+          <h3>One ticket. One review package.</h3>
           <ol>
-            <li>Enter or keep the seeded support ticket.</li>
-            <li>Run the CrewAI agent runtime.</li>
-            <li>Inspect the crew execution metadata and ReviewPackage.</li>
-            <li>Approve, reject, or request changes. Nothing is sent automatically.</li>
+            <li>Enter ticket context.</li>
+            <li>Run CrewAI.</li>
+            <li>Review the draft.</li>
+            <li>Approve, reject, or request changes.</li>
           </ol>
           <details>
-            <summary>Which runtime should I choose?</summary>
-            <p>Use CrewAI LLM for the main presentation. Local deterministic is only an advanced fallback for offline debugging or no-provider demos.</p>
+            <summary>Fallback modes</summary>
+            <p>Use fallback modes only for offline debugging or no-provider demos.</p>
           </details>
         </aside>
       </section>
@@ -699,31 +1017,7 @@ function RunDetailsView({
         </div>
       </section>
 
-      {(run.requestedRuntimeMode === "crewai_llm" || run.actualRuntimeMode === "crewai_llm") && <CrewAIExecutionPanel run={run} />}
-
-      <section className="board-card slim-card secondary-details-card">
-        <details>
-          <summary>Run metadata</summary>
-          <div className="metadata-grid">
-            <MetaItem label="Run ID" value={run.runId} />
-            <MetaItem label="Status" value={run.status} />
-            <MetaItem label="Requested runtime" value={runtimeLabels[run.requestedRuntimeMode] ?? run.requestedRuntimeMode} />
-            <MetaItem label="Actual runtime" value={runtimeLabels[run.actualRuntimeMode] ?? run.actualRuntimeMode} />
-            <MetaItem label="Trace ID" value={run.traceId} />
-            <MetaItem label="Last updated" value={new Date(run.lastUpdated).toLocaleString()} />
-          </div>
-          {run.runtimeError && <p className="inline-error">{run.runtimeError}</p>}
-          {run.status === "error" && (
-            <button className="secondary-action" onClick={onRetry}>
-              Retry
-            </button>
-          )}
-        </details>
-      </section>
-
       {reviewPackage && <DraftResponsePanel reviewPackage={reviewPackage} />}
-
-      {reviewPackage ? <AgentResults reviewPackage={reviewPackage} /> : <RuntimeOutput run={run} />}
 
       <section className="review-card">
         <SectionHeader title="Human review checkpoint" subtitle="No response is sent automatically." />
@@ -759,6 +1053,30 @@ function RunDetailsView({
         </div>
       </section>
 
+      {(run.requestedRuntimeMode === "crewai_llm" || run.actualRuntimeMode === "crewai_llm") && <CrewAIExecutionPanel run={run} />}
+
+      {reviewPackage ? <AgentResults reviewPackage={reviewPackage} /> : <RuntimeOutput run={run} />}
+
+      <section className="board-card slim-card secondary-details-card">
+        <details>
+          <summary>Run metadata</summary>
+          <div className="metadata-grid">
+            <MetaItem label="Run ID" value={run.runId} />
+            <MetaItem label="Status" value={run.status} />
+            <MetaItem label="Requested runtime" value={runtimeLabels[run.requestedRuntimeMode] ?? run.requestedRuntimeMode} />
+            <MetaItem label="Actual runtime" value={runtimeLabels[run.actualRuntimeMode] ?? run.actualRuntimeMode} />
+            <MetaItem label="Trace ID" value={run.traceId} />
+            <MetaItem label="Last updated" value={new Date(run.lastUpdated).toLocaleString()} />
+          </div>
+          {run.runtimeError && <p className="inline-error">{run.runtimeError}</p>}
+          {run.status === "error" && (
+            <button className="secondary-action" onClick={onRetry}>
+              Retry
+            </button>
+          )}
+        </details>
+      </section>
+
       <ObservabilityPanel run={run} />
     </section>
   );
@@ -776,25 +1094,33 @@ function CrewAIExecutionPanel({ run }: { run: RunStatus }) {
 
   return (
     <section className="crewai-execution-card">
-      <SectionHeader title="CrewAI Crew Execution" subtitle="YAML-defined agents running in a sequential process with a human approval checkpoint." />
-      <div className="execution-meta-grid">
-        <MetaItem label="Crew" value={run.crewName ?? "CustomerSupportCrew"} />
-        <MetaItem label="Process" value={run.process ?? "sequential"} />
-        <MetaItem label="Kickoff status" value={run.crewaiKickoffStatus ?? "not_applicable"} />
-        <MetaItem label="ReviewPackage parse status" value={run.reviewPackageParseStatus ?? "n/a"} />
-      </div>
-      <div className="execution-chip-section">
-        <span className="execution-section-label">Agents executed</span>
-        <div className="execution-chip-grid">
-          {(run.agentsUsed.length ? run.agentsUsed : Object.keys(agentLabels)).map((agent) => (
-            <span className="execution-chip" key={agent}>
-              {agentLabels[agent] ?? labelFromIdentifier(agent)}
-            </span>
-          ))}
+      <div className="compact-execution-header">
+        <div>
+          <p className="eyebrow">CrewAI confirmation</p>
+          <h3>CrewAI Crew completed</h3>
+          <p>Sequential crew run completed and stopped at the human approval checkpoint.</p>
         </div>
+        <StatusBadge status={run.crewaiKickoffStatus === "completed" ? "done" : run.status} />
+      </div>
+      <div className="execution-summary-strip">
+        <span>Crew: {run.crewName ?? "CustomerSupportCrew"}</span>
+        <span>Process: {run.process ?? "sequential"}</span>
+        <span>Parsed: {run.reviewPackageParseStatus ?? "n/a"}</span>
+        <span>{run.agentsUsed.length || 6} agents / {run.tasksUsed.length || 7} tasks</span>
       </div>
       <details className="execution-task-details">
-        <summary>Tasks executed</summary>
+        <summary>View CrewAI execution details</summary>
+        <div className="execution-chip-section">
+          <span className="execution-section-label">Agents executed</span>
+          <div className="execution-chip-grid">
+            {(run.agentsUsed.length ? run.agentsUsed : Object.keys(agentLabels)).map((agent) => (
+              <span className="execution-chip" key={agent}>
+                {agentLabels[agent] ?? labelFromIdentifier(agent)}
+              </span>
+            ))}
+          </div>
+        </div>
+        <span className="execution-section-label">Tasks executed</span>
         <div className="execution-chip-grid">
           {run.tasksUsed.map((task) => (
             <span className="execution-chip execution-chip-secondary" key={task}>
@@ -830,35 +1156,87 @@ function DraftResponsePanel({ reviewPackage }: { reviewPackage: ReviewPackage })
 }
 
 function AgentResults({ reviewPackage }: { reviewPackage: ReviewPackage }) {
+  const [selectedDetail, setSelectedDetail] = useState<{ title: string; value: string; detail: string } | null>(null);
+  const rows = [
+    {
+      title: "Classification",
+      value: reviewPackage.classification.category,
+      detail: reviewPackage.classification.rationale,
+    },
+    {
+      title: "Sentiment",
+      value: `${reviewPackage.sentiment.label} / ${reviewPackage.sentiment.urgency}`,
+      detail: reviewPackage.sentiment.riskFlags.join(", ") || "No risk flags",
+    },
+    {
+      title: "Knowledge",
+      value: `${reviewPackage.retrievedSources.length} source(s)`,
+      detail: reviewPackage.retrievedSources.map((source) => `${source.title}: ${source.snippet}`).join("\n\n"),
+    },
+    {
+      title: "Routing",
+      value: reviewPackage.routingRecommendation.queue,
+      detail: reviewPackage.routingRecommendation.rationale,
+    },
+    {
+      title: "Escalation",
+      value: `${reviewPackage.escalationRecommendation.escalate ? "Escalate" : "No escalation"} · ${reviewPackage.escalationRecommendation.severity}`,
+      detail: reviewPackage.escalationRecommendation.reason,
+    },
+  ];
+
   return (
-    <section className="board-card">
-      <SectionHeader title="Agent Results" subtitle="Specialist outputs organized for review." />
-      <div className="agent-grid">
-        <ResultCard title="Classification" value={reviewPackage.classification.category} detail={reviewPackage.classification.rationale} />
-        <ResultCard
-          title="Customer Sentiment"
-          value={`${reviewPackage.sentiment.label} / ${reviewPackage.sentiment.urgency}`}
-          detail={reviewPackage.sentiment.riskFlags.join(", ") || "No risk flags"}
-        />
-        <ResultCard
-          title="Knowledge Used"
-          value={`${reviewPackage.retrievedSources.length} source(s)`}
-          detail={reviewPackage.retrievedSources.map((source) => source.title).join(", ")}
-        />
-        <ResultCard title="Routing" value={reviewPackage.routingRecommendation.queue} detail={reviewPackage.routingRecommendation.rationale} />
-        <ResultCard
-          title="Escalation"
-          value={`${reviewPackage.escalationRecommendation.escalate ? "Escalate" : "No escalation"} · ${reviewPackage.escalationRecommendation.severity}`}
-          detail={reviewPackage.escalationRecommendation.reason}
-        />
+    <section className="board-card quiet-card">
+      <SectionHeader title="Agent output summary" subtitle="Compact specialist results. Open details only when needed." />
+      <div className="agent-summary-list">
+        {rows.map((row) => (
+          <div className="agent-summary-row" key={row.title}>
+            <div>
+              <span className="agent-summary-label">{row.title}</span>
+              <strong>{row.value}</strong>
+            </div>
+            <button className="secondary-action small-button" type="button" onClick={() => setSelectedDetail(row)}>
+              View details
+            </button>
+          </div>
+        ))}
       </div>
       {reviewPackage.warnings.length > 0 && (
-        <div className="warning-strip">
-          <AlertTriangle aria-hidden="true" />
-          <span>{reviewPackage.warnings.join(" ")}</span>
-        </div>
+        <details className="warning-summary">
+          <summary>
+            <AlertTriangle aria-hidden="true" />
+            {reviewPackage.warnings.length} warning(s)
+          </summary>
+          <ul>
+            {reviewPackage.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {selectedDetail && (
+        <Modal title={selectedDetail.title} onClose={() => setSelectedDetail(null)}>
+          <p className="modal-value">{selectedDetail.value}</p>
+          <pre className="modal-detail-text">{selectedDetail.detail}</pre>
+        </Modal>
       )}
     </section>
+  );
+}
+
+function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <section className="detail-modal" role="dialog" aria-modal="true" aria-labelledby="detail-modal-title" onClick={(event) => event.stopPropagation()}>
+        <div className="modal-header">
+          <h3 id="detail-modal-title">{title}</h3>
+          <button className="icon-button" type="button" aria-label="Close details" onClick={onClose}>
+            <X aria-hidden="true" />
+          </button>
+        </div>
+        {children}
+      </section>
+    </div>
   );
 }
 
@@ -1124,6 +1502,25 @@ function runtimeTooltip(mode: RuntimeMode) {
   if (mode === "crewai_flow") return "Runs the CrewAI Flow architecture path while preserving the human review checkpoint.";
   if (mode === "crewai_llm") return "Attempts the live CrewAI LLM runtime when provider configuration is available.";
   return "Uses deterministic local logic. Keep as an advanced fallback only.";
+}
+
+function loadingRuntimeCopy(mode: RuntimeMode) {
+  if (mode === "crewai_flow") {
+    return {
+      kicker: "CrewAI flow in motion",
+      title: "CrewAI flow is working",
+    };
+  }
+  if (mode === "crewai_llm") {
+    return {
+      kicker: "CrewAI agent runtime",
+      title: "CrewAI agents are working",
+    };
+  }
+  return {
+    kicker: "Local workflow fallback",
+    title: "Local workflow is working",
+  };
 }
 
 function labelFromIdentifier(value: string) {

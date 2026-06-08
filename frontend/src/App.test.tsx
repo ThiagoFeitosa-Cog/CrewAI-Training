@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -173,6 +173,8 @@ const historyPayload = {
   ],
 };
 
+let pendingRunResponse: Promise<Response> | null = null;
+
 const mockFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input);
 
@@ -199,6 +201,7 @@ const mockFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => 
   }
 
   if (url.endsWith("/api/runs") && init?.method === "POST") {
+    if (pendingRunResponse) return pendingRunResponse;
     return Response.json(apiRun);
   }
 
@@ -223,6 +226,22 @@ const mockFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => 
 describe("Customer Support Review Workflow", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", mockFetch);
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        addEventListener: vi.fn(),
+        addListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+        matches: query.includes("prefers-reduced-motion"),
+        media: query,
+        onchange: null,
+        removeEventListener: vi.fn(),
+        removeListener: vi.fn(),
+      })),
+    });
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
+    pendingRunResponse = null;
     mockFetch.mockClear();
   });
 
@@ -230,8 +249,19 @@ describe("Customer Support Review Workflow", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders the dashboard as the initial view", async () => {
+  async function launchDashboard() {
     render(<App />);
+    await userEvent.click(screen.getByRole("button", { name: /^launch demo$/i }));
+  }
+
+  it("renders the cinematic landing first and launches the dashboard", async () => {
+    render(<App />);
+
+    expect(screen.getByText("CrewAI customer support command layer")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^launch demo$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /see how it works/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /^launch demo$/i }));
 
     expect(screen.getAllByText("SupportCrew AI").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /start new support run/i })).toBeInTheDocument();
@@ -240,7 +270,7 @@ describe("Customer Support Review Workflow", () => {
   });
 
   it("renders the new run form with runtime selector", async () => {
-    render(<App />);
+    await launchDashboard();
 
     await userEvent.click(screen.getByRole("button", { name: /start new support run/i }));
 
@@ -252,21 +282,47 @@ describe("Customer Support Review Workflow", () => {
     expect(screen.getByRole("button", { name: /run analysis/i })).toBeInTheDocument();
   });
 
+  it("shows a polished loading modal while run analysis is pending", async () => {
+    let resolveRunResponse: (response: Response) => void = () => undefined;
+    pendingRunResponse = new Promise<Response>((resolve) => {
+      resolveRunResponse = resolve;
+    });
+
+    await launchDashboard();
+
+    await userEvent.click(screen.getByRole("button", { name: /start new support run/i }));
+    await userEvent.click(screen.getByRole("button", { name: /run analysis/i }));
+
+    const dialog = await screen.findByRole("dialog", { name: /crewai agents are working/i });
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByText(/Nothing is sent automatically/i)).toBeInTheDocument();
+    expect(within(dialog).getByText("Typical workflow")).toBeInTheDocument();
+    expect(within(dialog).getByText("Classification agent is reading the room...")).toBeInTheDocument();
+
+    resolveRunResponse(Response.json(apiRun));
+    pendingRunResponse = null;
+
+    await waitFor(() => expect(screen.getByText("Run Details")).toBeInTheDocument(), { timeout: 2000 });
+    expect(screen.queryByRole("dialog", { name: /crewai agents are working/i })).not.toBeInTheDocument();
+  });
+
   it("sends the selected runtime mode and opens run details", async () => {
-    render(<App />);
+    await launchDashboard();
 
     await userEvent.click(screen.getByRole("button", { name: /start new support run/i }));
     await userEvent.click(screen.getByRole("button", { name: /run analysis/i }));
 
     await waitFor(() => expect(screen.getByText("Run Details")).toBeInTheDocument(), { timeout: 2000 });
     expect(screen.getByText("Executive Summary")).toBeInTheDocument();
-    expect(screen.getByText("Agent Results")).toBeInTheDocument();
+    expect(screen.getByText("Agent output summary")).toBeInTheDocument();
     expect(screen.getByText("Human review checkpoint")).toBeInTheDocument();
     expect(screen.getByText("Human review")).toBeInTheDocument();
     expect(screen.getByText("Technical visibility")).toBeInTheDocument();
-    expect(screen.getByText("CrewAI Crew Execution")).toBeInTheDocument();
-    expect(screen.getByText("CustomerSupportCrew")).toBeInTheDocument();
-    expect(screen.getByText("sequential")).toBeInTheDocument();
+    expect(screen.getByText("CrewAI confirmation")).toBeInTheDocument();
+    expect(screen.getByText("CrewAI Crew completed")).toBeInTheDocument();
+    expect(screen.getByText(/Crew: CustomerSupportCrew/i)).toBeInTheDocument();
+    expect(screen.getByText(/Process: sequential/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByText("View CrewAI execution details"));
     expect(screen.getByText("Solution Generation")).toBeInTheDocument();
     expect(screen.getByText("Run metadata")).toBeInTheDocument();
     expect(screen.getAllByText("Required").length).toBeGreaterThan(0);
@@ -276,7 +332,7 @@ describe("Customer Support Review Workflow", () => {
   });
 
   it("keeps deterministic available as an advanced fallback", async () => {
-    render(<App />);
+    await launchDashboard();
 
     await userEvent.click(screen.getByRole("button", { name: /start new support run/i }));
     await userEvent.click(screen.getByText(/Advanced fallback modes/i));
@@ -288,7 +344,7 @@ describe("Customer Support Review Workflow", () => {
   });
 
   it("renders human review controls and submits a decision", async () => {
-    render(<App />);
+    await launchDashboard();
 
     await userEvent.click(screen.getByRole("button", { name: /start new support run/i }));
     await userEvent.click(screen.getByRole("button", { name: /run analysis/i }));
@@ -302,7 +358,7 @@ describe("Customer Support Review Workflow", () => {
   });
 
   it("renders the history table with filters", async () => {
-    render(<App />);
+    await launchDashboard();
 
     await userEvent.click(screen.getByRole("button", { name: /^history$/i }));
 

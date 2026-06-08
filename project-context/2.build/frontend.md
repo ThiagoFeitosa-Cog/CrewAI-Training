@@ -80,20 +80,22 @@ Resulting frontend refinements:
 
 ## User Journey
 
-1. User opens the app and lands on the Dashboard.
-2. User clicks `Start New Support Run`.
-3. User reviews or edits the seeded support ticket.
-4. User selects a runtime mode:
+1. User opens the app and sees the cinematic landing page.
+2. User can click `See how it works` to review the multi-agent orchestration story.
+3. User clicks `Launch Demo` or `Launch CrewAI Demo` to enter the operational Dashboard.
+4. User clicks `Start New Support Run`.
+5. User reviews or edits the seeded support ticket.
+6. User selects a runtime mode:
    - Local deterministic.
    - CrewAI Flow.
    - CrewAI LLM.
-5. User clicks `Run Analysis`.
-6. Frontend calls `POST /api/runs` through `apiCrewService.ts`.
-7. The app opens Run Details for the created run.
-8. User reviews specialist agent outputs, routing, escalation, warnings, and the draft response.
-9. User inspects observability only as needed: timeline, runtime events, metrics, and step durations.
-10. User approves, rejects, or requests changes. No customer-facing response is sent.
-11. User can open History / Reviews to inspect prior runs and review states.
+7. User clicks `Run Analysis`.
+8. Frontend calls `POST /api/runs` through `apiCrewService.ts`.
+9. The app opens Run Details for the created run.
+10. User reviews specialist agent outputs, routing, escalation, warnings, and the draft response.
+11. User inspects observability only as needed: timeline, runtime events, metrics, and step durations.
+12. User approves, rejects, or requests changes. No customer-facing response is sent.
+13. User can open History / Reviews to inspect prior runs and review states.
 
 ## Files Created
 
@@ -161,15 +163,34 @@ npm test
 
 ## Current Limitations
 
-- Default runtime is deterministic and local.
-- CrewAI LLM mode requires provider configuration and may return safe runtime output instead of a parsed ReviewPackage.
+- CrewAI LLM is the primary demo runtime and default UI selection.
+- Deterministic and CrewAI Flow modes remain available only as advanced fallback modes.
+- CrewAI LLM mode requires provider configuration; if output cannot be parsed, the UI shows a safe parsing message and preserves the runtime output for human review.
 - No authentication.
 - No database persistence.
 - No deployment configuration.
 - No CRM/ticketing integration.
 - Snapshot-style SSE only; no long-running live tool/token stream.
-- Token and cost metrics are unavailable in deterministic mode.
+- Token and cost metrics may be unavailable for local or provider runs depending on runtime support.
 - No automatic customer-facing response.
+
+## Minimalist UX Simplification Pass
+
+- Dashboard now focuses on overview, KPIs, recent runs, and the primary Start New Support Run CTA.
+- New Run keeps the CrewAI LLM recommended runtime visible and moves fallback modes into Advanced fallback modes.
+- Run Details prioritizes decision summary, draft response, and human review before diagnostics.
+- Agent rationales, source snippets, warnings, CrewAI agent/task lists, run metadata, timeline, and performance details are hidden behind modal or collapsed disclosure controls.
+- The goal is a calmer presentation flow that is scannable before exposing implementation details.
+
+## Cinematic Landing Page Pass
+
+- Added a presentation-first landing page before the operational dashboard.
+- The landing page explains the CrewAI customer support workflow through five sections: Hero, Multi-Agent Orchestration, Human Review, Observability, and Final CTA.
+- `Launch Demo` and `Launch CrewAI Demo` enter the existing dashboard without changing backend behavior.
+- `See how it works` scrolls to the orchestration section.
+- Lenis provides smooth scrolling in browsers that do not request reduced motion.
+- GSAP and ScrollTrigger provide the hero reveal, scroll indicator fade, and desktop pinned orchestration sequence.
+- Mobile uses a non-pinned vertical flow to avoid jumpy scrolling.
 
 ## QA Notes
 

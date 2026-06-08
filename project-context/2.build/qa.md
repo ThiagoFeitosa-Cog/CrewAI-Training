@@ -512,6 +512,54 @@ The UI is ready for a live presentation with non-blocking limitations only. It i
 
 PASS
 
+---
+
+## Minimalist UX/UI Refactor Validation
+
+### Scope
+
+- Persona: Development Crew with UX Designer, UI Designer, Frontend Engineer, Design Reviewer, QA Engineer, and Project Manager
+- Date: 2026-06-08
+- Scope: reduce cognitive load by moving secondary details behind modal and collapsed disclosure controls
+
+### Commands Executed
+
+```bash
+npm run build
+npm test
+PYTHONPATH=src .venv/bin/python -m unittest discover tests
+```
+
+### Browser Validation
+
+- Dashboard keeps the operational overview, KPI cards, primary CTA, and recent runs.
+- Dashboard no longer shows first-level trace/runtime diagnostics or the extra Needs Attention block.
+- New Run keeps CrewAI LLM selected as the recommended runtime.
+- Advanced fallback modes are collapsed by default.
+- Run Details leads with Executive Summary, Draft Response Review, and Human review checkpoint.
+- Agent outputs are summarized in compact rows with View details modals for rationales/source detail.
+- CrewAI execution is a compact confirmation with agents/tasks hidden behind a details disclosure.
+- Technical visibility remains collapsed by default.
+- Human review remains visible and no customer-facing response is sent automatically.
+
+### Results
+
+- Frontend production build passed.
+- Frontend tests passed: 6 tests.
+- Backend tests passed: 17 tests.
+- No backend behavior or API contracts were changed.
+- No secrets, authentication, database, deployment, CRM integration, or auto-send behavior were introduced.
+
+### Design Review Verdict
+
+PASS
+
+The UI is calmer and more presentation-ready. The main screens are scannable, details remain accessible, and Run Details now leads with the human decision instead of technical diagnostics.
+
+### QA Verdict
+
+PASS
+
 ### Non-Blocking Follow-Up
 
 - Add formal end-to-end browser tests later if presentation flow becomes a graded acceptance gate.
@@ -753,6 +801,46 @@ PYTHONPATH=src .venv/bin/python -m unittest discover tests
 PASS
 
 The sidebar now behaves like an integrated application drawer instead of a floating card. Desktop and mobile navigation patterns are clear, responsive, and demo-ready.
+
+### QA Verdict
+
+PASS
+
+---
+
+## Cinematic Landing Page Validation
+
+### Scope
+
+- Persona: Development Crew with UX Designer, UI Designer, Frontend Engineer, Design Reviewer, QA Engineer, and Project Manager
+- Date: 2026-06-08
+- Scope: presentation-ready landing page before the existing dashboard, using Lenis, GSAP, and ScrollTrigger
+
+### Commands Executed
+
+```bash
+cd frontend && npm install
+cd frontend && npm run build
+cd frontend && npm test
+PYTHONPATH=src .venv/bin/python -m unittest discover tests
+```
+
+### Results
+
+- Frontend production build passed.
+- Frontend tests passed: 6 tests.
+- Backend tests passed: 17 tests.
+- Landing page renders before the dashboard.
+- `Launch Demo` enters the existing operational dashboard.
+- `See how it works` targets the orchestration section.
+- Backend behavior and API contracts were not changed.
+- No secrets, authentication, database, deployment, CRM integration, or auto-send behavior were introduced.
+
+### Design Review Verdict
+
+PASS
+
+The new landing page creates a cleaner presentation story before the operational product UI. It explains the CrewAI workflow, human review checkpoint, and observability value without crowding the dashboard.
 
 ### QA Verdict
 
