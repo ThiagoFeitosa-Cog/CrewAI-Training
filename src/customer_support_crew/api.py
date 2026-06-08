@@ -343,6 +343,9 @@ def _summary_from_record(record: dict) -> dict:
 
 def _history_item(record: dict) -> dict:
     ticket = record["ticket"]
+    review_package = record.get("review_package") or {}
+    escalation = review_package.get("escalation") or {}
+    customer_metadata = ticket.get("customer_metadata") or {}
     return {
         "run_id": record["run_id"],
         "trace_id": record.get("trace_id", record["run_id"]),
@@ -353,6 +356,8 @@ def _history_item(record: dict) -> dict:
         "runtime_status": record.get("runtime_status", "success" if record.get("status") == "done" else "error"),
         "runtime_error": record.get("runtime_error"),
         "subject": ticket["subject"],
+        "company_name": customer_metadata.get("company_name", "Unknown"),
+        "escalated": bool(escalation.get("escalate", False)),
         "review_status": record["human_review"]["status"],
         "created_at": record["created_at"],
         "updated_at": record["updated_at"],

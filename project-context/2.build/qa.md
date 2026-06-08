@@ -424,3 +424,49 @@ PASS
 
 - Add strict parsing/normalization from live CrewAI LLM output into the local `ReviewPackage` schema.
 - Add optional token and cost metrics only if the provider exposes them safely.
+
+---
+
+## Presentation UX Refactor Validation
+
+### Scope
+
+- Persona: QA Engineer (`.cursor/agents/qa-eng.md`)
+- Date: 2026-06-08
+- Scope: frontend presentation UX refinement for Dashboard, New Support Run, Run Details, and History / Reviews
+
+### Commands Executed
+
+```bash
+npm run build
+npm test
+PYTHONPATH=src .venv/bin/python -m unittest discover tests
+```
+
+### Results
+
+- Frontend production build passed.
+- Frontend tests passed: 5 tests.
+- Backend tests passed.
+- Dashboard is the initial view and shows total runs, pending reviews, escalated cases, average runtime, latest status, recent runs, and the primary CTA.
+- New Support Run view renders the required ticket fields and runtime selector.
+- Runtime selector defaults to Local deterministic and sends the selected runtime mode to the backend service.
+- Successful run opens Run Details and renders the ReviewPackage sections.
+- Human Review controls render and submit review decisions through the existing review endpoint.
+- History / Reviews renders a table with required columns and filters.
+- Observability and performance remain visible in Run Details but are no longer the dominant visual content.
+
+### Scope Validation
+
+- Backend API contracts were not redesigned.
+- Runtime mode support was preserved.
+- Human-in-the-loop review was preserved.
+- No secrets, authentication, database, deployment, CRM integration, or auto-send behavior were introduced.
+
+### Verdict
+
+PASS
+
+### Non-Blocking Follow-Up
+
+- Add browser-level visual regression checks if the project later adds a formal end-to-end test harness.

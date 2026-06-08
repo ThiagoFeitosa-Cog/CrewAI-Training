@@ -94,6 +94,8 @@ export interface RunHistoryItem {
   runtimeStatus: "success" | "error";
   runtimeError?: string | null;
   subject: string;
+  companyName?: string;
+  escalated?: boolean;
   reviewStatus: HumanReviewState["status"];
   createdAt: string;
   updatedAt: string;

@@ -171,7 +171,12 @@ Current backend limitations:
 
 ## Frontend Prototype
 
-The frontend module is a React/TypeScript review workflow integrated with the local FastAPI backend.
+The frontend module is a React/TypeScript operator console integrated with the local FastAPI backend. It uses a clean multi-view presentation flow:
+
+- Dashboard.
+- New Support Run.
+- Run Details.
+- History / Reviews.
 
 Run locally:
 
@@ -207,13 +212,15 @@ Full-stack local test:
 
 1. Start the backend API on `http://127.0.0.1:8000`.
 2. Start the frontend on `http://127.0.0.1:5173`.
-3. Open the frontend.
-4. Select a runtime mode.
-5. Click `Run`.
-6. Confirm the ReviewPackage or runtime output renders from the backend.
-7. Confirm requested/actual runtime mode, run correlation, event timeline, performance metrics, and observability summary render.
-8. Submit a human review decision.
-9. Confirm Run History updates and the review event is recorded.
+3. Open the frontend and confirm the Dashboard is the initial view.
+4. Click `Start New Support Run`.
+5. Edit or keep the seeded support ticket.
+6. Select a runtime mode. `Local deterministic` is the default demo-safe mode.
+7. Click `Run Analysis`.
+8. Confirm Run Details opens and displays the ReviewPackage or safe runtime output from the backend.
+9. Confirm requested/actual runtime mode, run correlation, event timeline, performance metrics, and observability data are available without dominating the screen.
+10. Submit a human review decision.
+11. Open History / Reviews and confirm the run appears with review status and escalation state.
 
 Current frontend limitations:
 

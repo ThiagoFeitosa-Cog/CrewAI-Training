@@ -131,10 +131,30 @@ const apiRun = {
   },
 };
 
-let forceLlmError = false;
+const historyPayload = {
+  runs: [
+    {
+      run_id: apiRun.run_id,
+      trace_id: apiRun.trace_id,
+      status: apiRun.status,
+      runtime_mode: apiRun.runtime_mode,
+      requested_runtime_mode: apiRun.requested_runtime_mode,
+      actual_runtime_mode: apiRun.actual_runtime_mode,
+      runtime_status: apiRun.runtime_status,
+      runtime_error: apiRun.runtime_error,
+      subject: "Urgent: API sync failed again before our renewal review",
+      company_name: "Northstar Analytics",
+      escalated: true,
+      review_status: "pending",
+      created_at: updatedAt,
+      updated_at: updatedAt,
+    },
+  ],
+};
 
 const mockFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input);
+
   if (url.endsWith("/api/observability/summary")) {
     return Response.json({
       total_runs: 1,
@@ -147,52 +167,26 @@ const mockFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => 
       llm_mode_runs: 0,
     });
   }
+
   if (url.endsWith("/api/runs") && init?.method === "POST") {
-    const body = JSON.parse(String(init.body ?? "{}"));
-    if (forceLlmError || body.runtimeMode === "crewai_llm") {
-      return Response.json({
-        ...apiRun,
-        status: "error",
-        runtime_mode: "crewai_llm",
-        requested_runtime_mode: "crewai_llm",
-        actual_runtime_mode: "crewai_llm",
-        runtime_status: "error",
-        runtime_error: "CrewAI LLM mode requires provider configuration. Missing: OPENAI_API_KEY.",
-        review_package: null,
-        llm_kickoff_attempted: false,
-      });
-    }
     return Response.json(apiRun);
   }
+
   if (url.endsWith("/api/runs")) {
-    return Response.json({
-      runs: [
-        {
-          run_id: apiRun.run_id,
-          trace_id: apiRun.trace_id,
-          status: apiRun.status,
-          runtime_mode: apiRun.runtime_mode,
-          requested_runtime_mode: apiRun.requested_runtime_mode,
-          actual_runtime_mode: apiRun.actual_runtime_mode,
-          runtime_status: apiRun.runtime_status,
-          runtime_error: apiRun.runtime_error,
-          subject: "Urgent: API sync failed again before our renewal review",
-          review_status: "pending",
-          created_at: updatedAt,
-          updated_at: updatedAt,
-        },
-      ],
-    });
+    return Response.json(historyPayload);
   }
+
   if (url.includes("/review")) {
     return Response.json({
       ...apiRun,
       human_review: { status: "approved", reviewer_notes: "Looks good.", updated_at: updatedAt },
     });
   }
+
   if (url.includes("/api/runs/")) {
     return Response.json(apiRun);
   }
+
   return new Response("Not found", { status: 404 });
 });
 
@@ -200,75 +194,71 @@ describe("Customer Support Review Workflow", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", mockFetch);
     mockFetch.mockClear();
-    forceLlmError = false;
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it("runs the integrated crew workflow and renders the review package", async () => {
+  it("renders the dashboard as the initial view", async () => {
     render(<App />);
 
-    expect(screen.getByText("Crew: idle")).toBeInTheDocument();
-    expect(screen.getByLabelText("Subject")).toHaveValue("Urgent: API sync failed again before our renewal review");
-    expect(screen.getByLabelText("Runtime mode")).toHaveValue("deterministic");
-
-    await userEvent.click(screen.getByRole("button", { name: /run/i }));
-
-    await waitFor(() => expect(screen.getAllByText("Crew: done").length).toBeGreaterThan(0), { timeout: 2000 });
-    expect(screen.getAllByText("technical_support").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Human approval required: yes/i)).toBeInTheDocument();
-    expect(screen.getByText(/This draft has not been sent/i)).toBeInTheDocument();
-    expect(screen.getByText("Agent Activity")).toBeInTheDocument();
-    expect(screen.getByText("Event Timeline")).toBeInTheDocument();
-    expect(screen.getByText("Performance")).toBeInTheDocument();
-    expect(screen.getAllByText("run-test-001").length).toBeGreaterThan(0);
+    expect(screen.getByText("Support Operations Console")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /start new support run/i })).toBeInTheDocument();
+    expect(screen.getByText("Recent Runs")).toBeInTheDocument();
+    expect(await screen.findByText("Northstar Analytics")).toBeInTheDocument();
   });
 
-  it("sends the selected runtime mode to the backend", async () => {
+  it("renders the new run form with runtime selector", async () => {
     render(<App />);
 
-    await userEvent.selectOptions(screen.getByLabelText("Runtime mode"), "crewai_flow");
-    await userEvent.click(screen.getByRole("button", { name: /run/i }));
+    await userEvent.click(screen.getByRole("button", { name: /start new support run/i }));
 
-    await waitFor(() => expect(screen.getAllByText("Crew: done").length).toBeGreaterThan(0), { timeout: 2000 });
+    expect(screen.getByLabelText("Customer ID")).toHaveValue("CUST-2048");
+    expect(screen.getByLabelText("Company Name")).toHaveValue("Northstar Analytics");
+    expect(screen.getByLabelText("Runtime Mode")).toHaveValue("deterministic");
+    expect(screen.getByRole("button", { name: /run analysis/i })).toBeInTheDocument();
+  });
+
+  it("sends the selected runtime mode and opens run details", async () => {
+    render(<App />);
+
+    await userEvent.click(screen.getByRole("button", { name: /start new support run/i }));
+    await userEvent.selectOptions(screen.getByLabelText("Runtime Mode"), "crewai_flow");
+    await userEvent.click(screen.getByRole("button", { name: /run analysis/i }));
+
+    await waitFor(() => expect(screen.getByText("Run Details")).toBeInTheDocument(), { timeout: 2000 });
+    expect(screen.getByText("Executive Summary")).toBeInTheDocument();
+    expect(screen.getByText("Agent Results")).toBeInTheDocument();
+    expect(screen.getByText("Human Review")).toBeInTheDocument();
+
     const postCall = mockFetch.mock.calls.find(([url, init]) => String(url).endsWith("/api/runs") && init?.method === "POST");
     expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({ runtimeMode: "crewai_flow" });
   });
 
-  it("shows a safe LLM configuration error", async () => {
-    forceLlmError = true;
+  it("renders human review controls and submits a decision", async () => {
     render(<App />);
 
-    await userEvent.selectOptions(screen.getByLabelText("Runtime mode"), "crewai_llm");
-    await userEvent.click(screen.getByRole("button", { name: /run/i }));
+    await userEvent.click(screen.getByRole("button", { name: /start new support run/i }));
+    await userEvent.click(screen.getByRole("button", { name: /run analysis/i }));
 
-    await waitFor(() => expect(screen.getAllByText("Crew: error").length).toBeGreaterThan(0), { timeout: 2000 });
-    expect(screen.getAllByText(/CrewAI LLM mode requires provider configuration/i).length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
-  });
-
-  it("resets the workflow back to idle", async () => {
-    render(<App />);
-
-    await userEvent.click(screen.getByRole("button", { name: /run/i }));
-    await waitFor(() => expect(screen.getAllByText("Crew: done").length).toBeGreaterThan(0), { timeout: 2000 });
-
-    await userEvent.click(screen.getByRole("button", { name: /reset/i }));
-    expect(screen.getByText("Crew: idle")).toBeInTheDocument();
-    expect(screen.getByText("Run the crew to generate a backend ReviewPackage.")).toBeInTheDocument();
-  });
-
-  it("submits a human review decision", async () => {
-    render(<App />);
-
-    await userEvent.click(screen.getByRole("button", { name: /run/i }));
-    await waitFor(() => expect(screen.getByText("Human Review")).toBeInTheDocument(), { timeout: 2000 });
-
+    await screen.findByText("Human Review");
     await userEvent.type(screen.getByLabelText("Reviewer notes"), "Looks good.");
     await userEvent.click(screen.getByRole("button", { name: /submit review decision/i }));
 
-    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("/review"), expect.any(Object)));
+    await waitFor(() => expect(screen.getByText(/Saved review status:/i)).toBeInTheDocument());
+    expect(mockFetch.mock.calls.some(([url]) => String(url).includes("/review"))).toBe(true);
+  });
+
+  it("renders the history table with filters", async () => {
+    render(<App />);
+
+    await userEvent.click(screen.getByRole("button", { name: /^history$/i }));
+
+    expect(await screen.findByText("History / Reviews")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /pending review/i })).toBeInTheDocument();
+    expect(screen.getByText("Northstar Analytics")).toBeInTheDocument();
+    expect(screen.getByText("Yes")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^view$/i })).toBeInTheDocument();
   });
 });

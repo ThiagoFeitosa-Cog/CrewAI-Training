@@ -2,24 +2,24 @@
 
 ## Overview
 
-The frontend module provides a simple human review interface for the Multi-Agent Customer Support Crew MVP. It demonstrates the critical workflow: customer support ticket input, run crew, and review package result.
+The frontend module provides a presentation-ready operator console for the Multi-Agent Customer Support Crew MVP. It demonstrates the critical workflow: dashboard overview, customer support ticket input, run crew, ReviewPackage inspection, observability review, and human approval or rejection.
 
 The frontend now calls the local FastAPI backend for Week 4 integration. The default backend runtime remains deterministic and does not require paid LLM usage. Operators can explicitly select CrewAI Flow or CrewAI LLM modes for demos and validation.
 
 ## User Journey
 
 1. A support agent opens the app.
-2. The app displays a seeded support ticket example.
-3. The support agent can edit the ticket fields.
-4. The support agent selects a runtime mode.
-5. The support agent clicks Run.
-6. The status changes from idle to running.
-7. The backend creates a local run and returns status, correlation ids, runtime details, observability events, metrics, and a ReviewPackage or runtime output.
-8. The status changes to done or error.
-9. The app displays a backend-generated ReviewPackage or safe runtime output for human review.
-10. The support agent can inspect the draft, routing, escalation, retrieved sources, warnings, runtime details, and timeline.
+2. The app opens on a Dashboard with operational summary metrics and recent runs.
+3. The support agent clicks `Start New Support Run`.
+4. The app displays a focused seeded support ticket example.
+5. The support agent can edit the ticket fields.
+6. The support agent selects a runtime mode.
+7. The support agent clicks `Run Analysis`.
+8. The backend creates a local run and returns status, correlation ids, runtime details, observability events, metrics, and a ReviewPackage or runtime output.
+9. The app opens the Run Details view for that run.
+10. The support agent can inspect the executive summary, agent outputs, draft, routing, escalation, retrieved sources, warnings, runtime details, and timeline.
 11. The support agent can approve, reject, or request changes without sending any customer-facing response.
-12. The support agent can click Reset to return to the seeded input state.
+12. The support agent can use History / Reviews to inspect prior runs and review states.
 
 ## Inputs
 
@@ -51,8 +51,10 @@ When the user clicks Run:
 
 ## Results
 
-The result section displays:
+The Run Details view displays:
 
+- Run ID, status, requested runtime, actual runtime, trace ID, and last updated timestamp.
+- Executive summary with recommended action, short reason, and escalation status.
 - Classification.
 - Sentiment and urgency.
 - Retrieved sources.
@@ -65,6 +67,66 @@ The result section displays:
 The draft response is clearly marked as for human review only and is not sent automatically.
 
 CrewAI LLM output may render as a safe runtime output envelope instead of a parsed ReviewPackage until strict Pydantic parsing is added.
+
+## Views
+
+### Dashboard
+
+The initial screen displays:
+
+- Product title and short subtitle.
+- Total runs.
+- Pending human reviews.
+- Escalated cases.
+- Average runtime.
+- Latest run status.
+- Recent runs table.
+- Primary CTA: `Start New Support Run`.
+
+### New Support Run
+
+The focused form displays:
+
+- Customer ID.
+- Company Name.
+- Plan Tier.
+- Product Area.
+- Subject.
+- Message.
+- Runtime Mode selector.
+- `Run Analysis` and `Reset` controls.
+
+### Run Details
+
+The detail view displays:
+
+- Run metadata.
+- Executive summary.
+- Agent Results.
+- Human Review.
+- Observability and performance.
+
+### History / Reviews
+
+The history view displays a table with:
+
+- Run ID.
+- Subject.
+- Company.
+- Runtime.
+- Status.
+- Review Status.
+- Escalated.
+- Updated At.
+- View action.
+
+Filters:
+
+- All.
+- Pending Review.
+- Approved.
+- Rejected.
+- Escalated.
 
 ## Observability and Performance
 
@@ -89,13 +151,15 @@ Token usage and cost estimate display as unavailable in deterministic mode.
 
 ## History
 
-The MVP shows a lightweight History section with the latest run:
+The MVP shows a History / Reviews view backed by `GET /api/runs`:
 
 - Run ID.
-- Trace ID.
 - Ticket subject.
+- Company.
+- Runtime.
 - Final status.
 - Review status.
+- Escalation flag.
 - Last updated timestamp.
 
 Run history is loaded from `GET /api/runs` and backed by local JSON records under `data/runs/`.
@@ -109,12 +173,7 @@ The frontend uses a lightweight finite-state machine:
 - `done`: review package is available.
 - `error`: inline error message is shown and Retry is available.
 
-Status labels:
-
-- Crew: idle.
-- Crew: running.
-- Crew: done.
-- Crew: error.
+Status is shown in context through dashboard metrics, run badges, and inline error messages. The previous one-screen `Crew: idle/running/done/error` banner was replaced by view-specific status badges to reduce clutter.
 
 ## Contracts
 
@@ -250,6 +309,9 @@ Advanced accessibility, focus management, and resilience behavior are deferred t
 | API service contracts documented | Done | `POST /api/runs`, status, history, and review endpoints. |
 | Observability contracts documented | Done | Events, metrics, summary, run_id, and trace_id are documented. |
 | Runtime selector documented | Done | Local deterministic, CrewAI Flow, and CrewAI LLM modes are documented. |
+| Dashboard view documented | Done | Initial product overview and recent runs are documented. |
+| Run Details view documented | Done | Executive summary, agent results, human review, and observability are documented. |
+| History filters documented | Done | All, Pending Review, Approved, Rejected, and Escalated filters are documented. |
 | Human review constraint documented | Done | Draft is never sent automatically. |
 | Backend integration point implemented | Done | Frontend uses FastAPI service through `apiCrewService.ts`. |
 | Out-of-scope items listed | Done | No auth, DB, deployment, raw prompt tracing, or automatic response. |

@@ -275,6 +275,8 @@ export async function getRunHistory(): Promise<RunHistoryItem[]> {
       runtime_status?: "success" | "error";
       runtime_error?: string | null;
       subject: string;
+      company_name?: string;
+      escalated?: boolean;
       review_status: HumanReviewState["status"];
       created_at: string;
       updated_at: string;
@@ -291,6 +293,8 @@ export async function getRunHistory(): Promise<RunHistoryItem[]> {
     runtimeStatus: run.runtime_status ?? (run.status === "done" ? "success" : "error"),
     runtimeError: run.runtime_error ?? null,
     subject: run.subject,
+    companyName: run.company_name,
+    escalated: run.escalated,
     reviewStatus: run.review_status,
     createdAt: run.created_at,
     updatedAt: run.updated_at,
