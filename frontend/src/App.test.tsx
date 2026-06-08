@@ -10,13 +10,34 @@ const apiRun = {
   run_id: "run-test-001",
   trace_id: "run-test-001",
   status: "done",
-  runtime_mode: "deterministic",
-  requested_runtime_mode: "deterministic",
-  actual_runtime_mode: "deterministic",
+  runtime_mode: "crewai_llm",
+  requested_runtime_mode: "crewai_llm",
+  actual_runtime_mode: "crewai_llm",
   runtime_status: "success",
   runtime_error: null,
   review_package_parse_status: "parsed",
-  llm_kickoff_attempted: false,
+  llm_kickoff_attempted: true,
+  crew_name: "CustomerSupportCrew",
+  process: "sequential",
+  crewai_kickoff_attempted: true,
+  crewai_kickoff_status: "completed",
+  agents_used: [
+    "classification_agent",
+    "sentiment_analysis_agent",
+    "knowledge_retrieval_agent",
+    "solution_generation_agent",
+    "routing_agent",
+    "escalation_agent",
+  ],
+  tasks_used: [
+    "classify_ticket_task",
+    "analyze_sentiment_task",
+    "retrieve_knowledge_task",
+    "generate_draft_response_task",
+    "recommend_routing_task",
+    "recommend_escalation_task",
+    "assemble_review_package_task",
+  ],
   updated_at: updatedAt,
   review_package: {
     classification: {
@@ -73,7 +94,7 @@ const apiRun = {
       trace_id: "run-test-001",
       event_type: "run_started",
       timestamp: updatedAt,
-      safe_summary: "Run started in deterministic mode.",
+      safe_summary: "Run started in CrewAI LLM mode.",
       step_name: null,
       duration_ms: null,
       metadata: {},
@@ -93,7 +114,7 @@ const apiRun = {
   metrics: {
     run_id: "run-test-001",
     trace_id: "run-test-001",
-    runtime_mode: "deterministic",
+    runtime_mode: "crewai_llm",
     status: "done",
     started_at: updatedAt,
     finished_at: updatedAt,
@@ -115,7 +136,7 @@ const apiRun = {
   observability_summary: {
     run_id: "run-test-001",
     trace_id: "run-test-001",
-    runtime_mode: "deterministic",
+    runtime_mode: "crewai_llm",
     status: "done",
     started_at: updatedAt,
     finished_at: updatedAt,
@@ -155,6 +176,15 @@ const historyPayload = {
 const mockFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input);
 
+  if (url.endsWith("/health")) {
+    return Response.json({
+      status: "ok",
+      runtime_mode: "crewai_llm",
+      provider_configured: true,
+      service: "customer-support-crew-api",
+    });
+  }
+
   if (url.endsWith("/api/observability/summary")) {
     return Response.json({
       total_runs: 1,
@@ -162,9 +192,9 @@ const mockFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => 
       error_runs: 0,
       average_wall_time_ms: 42,
       latest_run_id: apiRun.run_id,
-      deterministic_mode_runs: 1,
+      deterministic_mode_runs: 0,
       crewai_flow_mode_runs: 0,
-      llm_mode_runs: 0,
+      llm_mode_runs: 1,
     });
   }
 
@@ -203,7 +233,7 @@ describe("Customer Support Review Workflow", () => {
   it("renders the dashboard as the initial view", async () => {
     render(<App />);
 
-    expect(screen.getByText("Support Operations Console")).toBeInTheDocument();
+    expect(screen.getAllByText("SupportCrew AI").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /start new support run/i })).toBeInTheDocument();
     expect(screen.getByText("Recent Runs")).toBeInTheDocument();
     expect(await screen.findByText("Northstar Analytics")).toBeInTheDocument();
@@ -216,7 +246,9 @@ describe("Customer Support Review Workflow", () => {
 
     expect(screen.getByLabelText("Customer ID")).toHaveValue("CUST-2048");
     expect(screen.getByLabelText("Company Name")).toHaveValue("Northstar Analytics");
-    expect(screen.getByLabelText("Runtime Mode")).toHaveValue("deterministic");
+    expect(screen.getByRole("button", { name: /crewai llm/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText(/Full CrewAI crew kickoff/i)).toBeInTheDocument();
+    expect(screen.getByText(/Advanced fallback modes/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /run analysis/i })).toBeInTheDocument();
   });
 
@@ -224,16 +256,35 @@ describe("Customer Support Review Workflow", () => {
     render(<App />);
 
     await userEvent.click(screen.getByRole("button", { name: /start new support run/i }));
-    await userEvent.selectOptions(screen.getByLabelText("Runtime Mode"), "crewai_flow");
     await userEvent.click(screen.getByRole("button", { name: /run analysis/i }));
 
     await waitFor(() => expect(screen.getByText("Run Details")).toBeInTheDocument(), { timeout: 2000 });
     expect(screen.getByText("Executive Summary")).toBeInTheDocument();
     expect(screen.getByText("Agent Results")).toBeInTheDocument();
-    expect(screen.getByText("Human Review")).toBeInTheDocument();
+    expect(screen.getByText("Human review checkpoint")).toBeInTheDocument();
+    expect(screen.getByText("Human review")).toBeInTheDocument();
+    expect(screen.getByText("Technical visibility")).toBeInTheDocument();
+    expect(screen.getByText("CrewAI Crew Execution")).toBeInTheDocument();
+    expect(screen.getByText("CustomerSupportCrew")).toBeInTheDocument();
+    expect(screen.getByText("sequential")).toBeInTheDocument();
+    expect(screen.getByText("Solution Generation")).toBeInTheDocument();
+    expect(screen.getByText("Run metadata")).toBeInTheDocument();
+    expect(screen.getAllByText("Required").length).toBeGreaterThan(0);
 
     const postCall = mockFetch.mock.calls.find(([url, init]) => String(url).endsWith("/api/runs") && init?.method === "POST");
-    expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({ runtimeMode: "crewai_flow" });
+    expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({ runtimeMode: "crewai_llm" });
+  });
+
+  it("keeps deterministic available as an advanced fallback", async () => {
+    render(<App />);
+
+    await userEvent.click(screen.getByRole("button", { name: /start new support run/i }));
+    await userEvent.click(screen.getByText(/Advanced fallback modes/i));
+    await userEvent.click(screen.getByRole("button", { name: /local deterministic/i }));
+    await userEvent.click(screen.getByRole("button", { name: /run analysis/i }));
+
+    const postCall = mockFetch.mock.calls.find(([url, init]) => String(url).endsWith("/api/runs") && init?.method === "POST");
+    expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({ runtimeMode: "deterministic" });
   });
 
   it("renders human review controls and submits a decision", async () => {
@@ -242,11 +293,11 @@ describe("Customer Support Review Workflow", () => {
     await userEvent.click(screen.getByRole("button", { name: /start new support run/i }));
     await userEvent.click(screen.getByRole("button", { name: /run analysis/i }));
 
-    await screen.findByText("Human Review");
+    await screen.findByText("Human review checkpoint");
     await userEvent.type(screen.getByLabelText("Reviewer notes"), "Looks good.");
     await userEvent.click(screen.getByRole("button", { name: /submit review decision/i }));
 
-    await waitFor(() => expect(screen.getByText(/Saved review status:/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Saved review status/i)).toBeInTheDocument());
     expect(mockFetch.mock.calls.some(([url]) => String(url).includes("/review"))).toBe(true);
   });
 
@@ -256,9 +307,9 @@ describe("Customer Support Review Workflow", () => {
     await userEvent.click(screen.getByRole("button", { name: /^history$/i }));
 
     expect(await screen.findByText("History / Reviews")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /pending review/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^pending$/i })).toBeInTheDocument();
     expect(screen.getByText("Northstar Analytics")).toBeInTheDocument();
-    expect(screen.getByText("Yes")).toBeInTheDocument();
+    expect(screen.getAllByText("Escalated").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /^view$/i })).toBeInTheDocument();
   });
 });

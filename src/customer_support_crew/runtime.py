@@ -16,6 +16,25 @@ DEFAULT_KNOWLEDGE_BASE = PROJECT_ROOT / "knowledge_base" / "support_kb.md"
 LOCAL_ENV_FILE = PROJECT_ROOT / ".env"
 CREWAI_RUNTIME_HOME = PROJECT_ROOT / ".crewai-home"
 SUPPORTED_PROVIDER_ENV = {"MODEL", "OPENAI_API_BASE", "OPENAI_API_KEY", "CREWAI_TRACING_ENABLED", "OBSERVABILITY_MODE"}
+CREW_NAME = "CustomerSupportCrew"
+CREW_PROCESS = "sequential"
+CREW_AGENTS_USED = [
+    "classification_agent",
+    "sentiment_analysis_agent",
+    "knowledge_retrieval_agent",
+    "solution_generation_agent",
+    "routing_agent",
+    "escalation_agent",
+]
+CREW_TASKS_USED = [
+    "classify_ticket_task",
+    "analyze_sentiment_task",
+    "retrieve_knowledge_task",
+    "generate_draft_response_task",
+    "recommend_routing_task",
+    "recommend_escalation_task",
+    "assemble_review_package_task",
+]
 
 RuntimeMode = Literal["deterministic", "crewai_flow", "crewai_llm"]
 RuntimeStatus = Literal["success", "error"]
@@ -31,6 +50,12 @@ class RuntimeResult:
     runtime_error: str | None = None
     review_package_parse_status: str = "not_applicable"
     llm_kickoff_attempted: bool = False
+    crew_name: str | None = None
+    process: str | None = None
+    crewai_kickoff_attempted: bool = False
+    crewai_kickoff_status: Literal["completed", "error", "not_configured", "not_applicable"] = "not_applicable"
+    agents_used: list[str] | None = None
+    tasks_used: list[str] | None = None
 
 
 def run_support_workflow(ticket: SupportTicket, runtime_mode: RuntimeMode) -> RuntimeResult:
@@ -107,6 +132,12 @@ def _run_crewai_llm(ticket: SupportTicket, requested_runtime_mode: RuntimeMode) 
                 f"{', '.join(missing_required)}. Deterministic mode remains available."
             ),
             llm_kickoff_attempted=False,
+            crew_name=CREW_NAME,
+            process=CREW_PROCESS,
+            crewai_kickoff_attempted=False,
+            crewai_kickoff_status="not_configured",
+            agents_used=CREW_AGENTS_USED,
+            tasks_used=CREW_TASKS_USED,
         )
 
     missing_advisory = [name for name in ("MODEL", "OPENAI_API_BASE") if not os.getenv(name)]
@@ -120,6 +151,12 @@ def _run_crewai_llm(ticket: SupportTicket, requested_runtime_mode: RuntimeMode) 
             runtime_status="error",
             runtime_error="CrewAI LLM mode could not import the CrewAI crew module.",
             llm_kickoff_attempted=False,
+            crew_name=CREW_NAME,
+            process=CREW_PROCESS,
+            crewai_kickoff_attempted=False,
+            crewai_kickoff_status="error",
+            agents_used=CREW_AGENTS_USED,
+            tasks_used=CREW_TASKS_USED,
         )
 
     if not CREWAI_AVAILABLE:
@@ -129,6 +166,12 @@ def _run_crewai_llm(ticket: SupportTicket, requested_runtime_mode: RuntimeMode) 
             runtime_status="error",
             runtime_error="CrewAI LLM mode requires CrewAI to be installed.",
             llm_kickoff_attempted=False,
+            crew_name=CREW_NAME,
+            process=CREW_PROCESS,
+            crewai_kickoff_attempted=False,
+            crewai_kickoff_status="not_configured",
+            agents_used=CREW_AGENTS_USED,
+            tasks_used=CREW_TASKS_USED,
         )
 
     inputs = _ticket_to_crew_inputs(ticket)
@@ -141,19 +184,29 @@ def _run_crewai_llm(ticket: SupportTicket, requested_runtime_mode: RuntimeMode) 
             runtime_status="error",
             runtime_error=f"CrewAI LLM provider call failed safely: {exc.__class__.__name__}.",
             llm_kickoff_attempted=True,
+            crew_name=CREW_NAME,
+            process=CREW_PROCESS,
+            crewai_kickoff_attempted=True,
+            crewai_kickoff_status="error",
+            agents_used=CREW_AGENTS_USED,
+            tasks_used=CREW_TASKS_USED,
         )
 
-    output_text = str(result)
+    output_text = _crew_result_to_text(result)
+    parsed_review_package, parse_error = parse_review_package_from_crewai_output(output_text)
+    parse_status = "parsed" if parsed_review_package else "not_parsed"
     runtime_output = {
         "type": "crewai_llm_result",
-        "review_package_parse_status": "not_parsed",
+        "review_package_parse_status": parse_status,
         "output_text": output_text,
         "human_approval_required": True,
         "warnings": [
             "LLM output is for human review only and has not been sent.",
-            "ReviewPackage parsing is not enforced for the LLM mode yet.",
         ],
     }
+    if parse_error:
+        runtime_output["parse_error"] = parse_error
+        runtime_output["warnings"].append("CrewAI output could not be parsed into ReviewPackage JSON.")
     if missing_advisory:
         runtime_output["configuration_warnings"] = [
             f"{name} is not set; provider defaults may have been used." for name in missing_advisory
@@ -163,10 +216,65 @@ def _run_crewai_llm(ticket: SupportTicket, requested_runtime_mode: RuntimeMode) 
         requested_runtime_mode=requested_runtime_mode,
         actual_runtime_mode="crewai_llm",
         runtime_status="success",
+        review_package=parsed_review_package,
         runtime_output=runtime_output,
-        review_package_parse_status="not_parsed",
+        review_package_parse_status=parse_status,
         llm_kickoff_attempted=True,
+        crew_name=CREW_NAME,
+        process=CREW_PROCESS,
+        crewai_kickoff_attempted=True,
+        crewai_kickoff_status="completed",
+        agents_used=CREW_AGENTS_USED,
+        tasks_used=CREW_TASKS_USED,
     )
+
+
+def _crew_result_to_text(result: Any) -> str:
+    raw = getattr(result, "raw", None)
+    if raw:
+        return str(raw)
+    json_dict = getattr(result, "json_dict", None)
+    if json_dict:
+        return json.dumps(json_dict)
+    return str(result)
+
+
+def parse_review_package_from_crewai_output(output_text: str) -> tuple[ReviewPackage | None, str | None]:
+    try:
+        payload = _extract_json_payload(output_text)
+        return ReviewPackage.model_validate(payload), None
+    except Exception as exc:
+        return None, f"{exc.__class__.__name__}: CrewAI output did not match ReviewPackage schema."
+
+
+def _extract_json_payload(output_text: str) -> Any:
+    stripped = output_text.strip()
+    if not stripped:
+        raise ValueError("Empty CrewAI output.")
+
+    if stripped.startswith("```"):
+        lines = stripped.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+        stripped = "\n".join(lines).strip()
+
+    try:
+        return json.loads(stripped)
+    except json.JSONDecodeError:
+        pass
+
+    start_positions = [index for index in (stripped.find("{"), stripped.find("[")) if index >= 0]
+    if not start_positions:
+        raise ValueError("No JSON object found in CrewAI output.")
+    start = min(start_positions)
+    opener = stripped[start]
+    closer = "}" if opener == "{" else "]"
+    end = stripped.rfind(closer)
+    if end <= start:
+        raise ValueError("Incomplete JSON payload in CrewAI output.")
+    return json.loads(stripped[start : end + 1])
 
 
 def _load_local_env(env_path: Path | None = None) -> None:

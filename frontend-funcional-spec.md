@@ -2,14 +2,14 @@
 
 ## Overview
 
-The frontend module provides a presentation-ready operator console for the Multi-Agent Customer Support Crew MVP. It demonstrates the critical workflow: dashboard overview, customer support ticket input, run crew, ReviewPackage inspection, observability review, and human approval or rejection.
+The frontend module provides a presentation-ready support operations console for the Multi-Agent Customer Support Crew MVP. It demonstrates the critical workflow: dashboard cockpit, customer support ticket input, run crew, ReviewPackage inspection, draft response review, observability review, and human approval or rejection.
 
 The frontend now calls the local FastAPI backend for Week 4 integration. The default backend runtime remains deterministic and does not require paid LLM usage. Operators can explicitly select CrewAI Flow or CrewAI LLM modes for demos and validation.
 
 ## User Journey
 
 1. A support agent opens the app.
-2. The app opens on a Dashboard with operational summary metrics and recent runs.
+2. The app opens on a Dashboard cockpit with operational summary metrics, needs-attention signals, latest activity, and recent runs.
 3. The support agent clicks `Start New Support Run`.
 4. The app displays a focused seeded support ticket example.
 5. The support agent can edit the ticket fields.
@@ -17,9 +17,10 @@ The frontend now calls the local FastAPI backend for Week 4 integration. The def
 7. The support agent clicks `Run Analysis`.
 8. The backend creates a local run and returns status, correlation ids, runtime details, observability events, metrics, and a ReviewPackage or runtime output.
 9. The app opens the Run Details view for that run.
-10. The support agent can inspect the executive summary, agent outputs, draft, routing, escalation, retrieved sources, warnings, runtime details, and timeline.
-11. The support agent can approve, reject, or request changes without sending any customer-facing response.
-12. The support agent can use History / Reviews to inspect prior runs and review states.
+10. The support agent can inspect the executive summary, escalation risk, draft response review panel, agent outputs, routing, retrieved sources, warnings, runtime details, and timeline.
+11. Long rationale, draft, runtime metadata, and observability details are available through expandable panels so the first screen stays focused on the decision.
+12. The support agent can approve, reject, or request changes without sending any customer-facing response.
+13. The support agent can use History / Reviews to inspect prior runs and review states.
 
 ## Inputs
 
@@ -35,6 +36,12 @@ The user provides:
   - Local deterministic.
   - CrewAI Flow.
   - CrewAI LLM.
+
+Runtime mode helper text explains the selected mode in plain language:
+
+- Local deterministic: fast local mode, no API required.
+- CrewAI Flow: CrewAI orchestration path.
+- CrewAI LLM: live CrewAI agent runtime.
 
 ## Run
 
@@ -55,6 +62,7 @@ The Run Details view displays:
 
 - Run ID, status, requested runtime, actual runtime, trace ID, and last updated timestamp.
 - Executive summary with recommended action, short reason, and escalation status.
+- Human review required status.
 - Classification.
 - Sentiment and urgency.
 - Retrieved sources.
@@ -80,31 +88,40 @@ The initial screen displays:
 - Escalated cases.
 - Average runtime.
 - Latest run status.
+- Needs Attention summary.
+- Latest activity signal.
 - Recent runs table.
 - Primary CTA: `Start New Support Run`.
 
 ### New Support Run
 
-The focused form displays:
+The focused guided workspace displays:
 
+- Step 1: customer and ticket details.
+- Step 2: runtime mode selection.
+- Step 3: run analysis.
 - Customer ID.
 - Company Name.
 - Plan Tier.
 - Product Area.
 - Subject.
 - Message.
-- Runtime Mode selector.
+- Runtime Mode segmented cards.
 - `Run Analysis` and `Reset` controls.
+- A helper card that explains the four-step workflow and recommends Local deterministic mode for live demos.
 
 ### Run Details
 
 The detail view displays:
 
-- Run metadata.
-- Executive summary.
+- Compact run header with status, runtime, and trace ID.
+- Executive summary with recommended action.
+- Draft Response Review panel.
 - Agent Results.
-- Human Review.
-- Observability and performance.
+- Prominent Human Review card.
+- Collapsible Run metadata.
+- Agent result cards with first-level summaries and expandable `View details` rationale.
+- Secondary Technical visibility section with collapsible agent activity, runtime events, performance, and runtime detail panels.
 
 ### History / Reviews
 
@@ -130,7 +147,7 @@ Filters:
 
 ## Observability and Performance
 
-The frontend displays:
+The frontend preserves these details but treats them as secondary information:
 
 - `run_id`
 - `trace_id`
@@ -147,7 +164,9 @@ The frontend displays:
 - step durations
 - aggregate observability summary
 
-Token usage and cost estimate display as unavailable in deterministic mode.
+Token usage and cost estimate display as "Not available in deterministic mode" when local deterministic execution is selected.
+
+In Run Details, observability is hidden behind collapsible panels by default so presentation viewers first see the recommended action, escalation status, draft review, and human decision checkpoint.
 
 ## History
 
@@ -311,6 +330,7 @@ Advanced accessibility, focus management, and resilience behavior are deferred t
 | Runtime selector documented | Done | Local deterministic, CrewAI Flow, and CrewAI LLM modes are documented. |
 | Dashboard view documented | Done | Initial product overview and recent runs are documented. |
 | Run Details view documented | Done | Executive summary, agent results, human review, and observability are documented. |
+| Progressive disclosure documented | Done | Metadata, result details, and observability are collapsible. |
 | History filters documented | Done | All, Pending Review, Approved, Rejected, and Escalated filters are documented. |
 | Human review constraint documented | Done | Draft is never sent automatically. |
 | Backend integration point implemented | Done | Frontend uses FastAPI service through `apiCrewService.ts`. |

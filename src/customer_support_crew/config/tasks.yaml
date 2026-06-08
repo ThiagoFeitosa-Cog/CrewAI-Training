@@ -90,16 +90,82 @@ assemble_review_package_task:
   description: >
     Assemble all prior structured outputs into a ReviewPackage for human review. The
     ReviewPackage is the human-in-the-loop checkpoint and must not send any response.
+    Return only valid JSON. Do not wrap the JSON in markdown fences. Do not add prose
+    before or after the JSON.
     Include the original ticket fields:
     Ticket ID: {ticket_id}
     Subject: {subject}
     Body: {body}
     Product area: {product_area}
     Customer metadata: {customer_metadata}
+    The JSON must be compatible with this structure:
+    {
+      "ticket": {
+        "ticket_id": string,
+        "customer_id": string,
+        "subject": string,
+        "body": string,
+        "channel": "email" or "ticket",
+        "product_area": string or null,
+        "customer_metadata": {
+          "customer_id": string,
+          "company_name": string,
+          "plan_tier": string,
+          "account_status": string,
+          "assigned_csm": string or null,
+          "risk_level": "low" or "medium" or "high"
+        }
+      },
+      "classification": {
+        "category": "billing" or "technical_support" or "onboarding" or "account_management" or "product_question" or "bug_report" or "feature_request" or "cancellation_or_churn_risk" or "general_support",
+        "intent": string,
+        "product_area": string or null,
+        "confidence": number between 0 and 1,
+        "rationale": string,
+        "needs_manual_review": boolean
+      },
+      "sentiment": {
+        "sentiment_label": "positive" or "neutral" or "frustrated" or "urgent" or "high_risk",
+        "urgency": "low" or "medium" or "high" or "critical",
+        "risk_flags": array of strings,
+        "confidence": number between 0 and 1,
+        "rationale": string
+      },
+      "retrieval": {
+        "sources": array of {"source_id": string, "title": string, "snippet": string, "relevance_score": number between 0 and 1},
+        "retrieval_confidence": number between 0 and 1,
+        "missing_knowledge": boolean,
+        "rationale": string
+      },
+      "draft_response": {
+        "draft_text": string,
+        "source_ids": array of strings,
+        "confidence": number between 0 and 1,
+        "safety_notes": array of strings,
+        "sendable_after_human_review": false
+      },
+      "routing": {
+        "queue": "billing" or "technical_support" or "onboarding" or "customer_success" or "general_support",
+        "confidence": number between 0 and 1,
+        "rationale": string,
+        "manual_review_required": boolean
+      },
+      "escalation": {
+        "escalate": boolean,
+        "severity": "P0" or "P1" or "P2" or "P3" or "manual_review",
+        "target": string or null,
+        "reason": string,
+        "confidence": number between 0 and 1
+      },
+      "warnings": array of strings,
+      "human_approval_required": true,
+      "ready_for_human_review": true
+    }
   expected_output: >
-    ReviewPackage containing the original ticket, ClassificationResult, SentimentResult,
-    RetrievalResult, DraftResponse, RoutingRecommendation, EscalationRecommendation,
-    warnings, human_approval_required, and ready_for_human_review.
+    Valid JSON only. A ReviewPackage containing the original ticket, ClassificationResult,
+    SentimentResult, RetrievalResult, DraftResponse, RoutingRecommendation,
+    EscalationRecommendation, warnings, human_approval_required, and
+    ready_for_human_review. The JSON must validate against the ReviewPackage schema.
   agent: escalation_agent
   context:
     - classify_ticket_task

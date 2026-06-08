@@ -60,6 +60,12 @@ export interface RunStatus {
   runtimeError?: string | null;
   reviewPackageParseStatus?: string;
   llmKickoffAttempted?: boolean;
+  crewName?: string | null;
+  process?: string | null;
+  crewaiKickoffAttempted?: boolean;
+  crewaiKickoffStatus?: "completed" | "error" | "not_configured" | "not_applicable";
+  agentsUsed: string[];
+  tasksUsed: string[];
   runtimeOutput?: RuntimeOutput | null;
   lastUpdated: string;
   reviewPackage?: ReviewPackage;
@@ -128,6 +134,7 @@ export interface RuntimeOutput {
   type: string;
   reviewPackageParseStatus?: string;
   outputText?: string;
+  parseError?: string;
   humanApprovalRequired?: boolean;
   warnings?: string[];
   configurationWarnings?: string[];

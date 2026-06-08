@@ -73,6 +73,8 @@ export async function startRun(ticket: TicketInput): Promise<RunStatus> {
     lastUpdated: new Date().toISOString(),
     observabilitySteps: [],
     events: [],
+    agentsUsed: [],
+    tasksUsed: [],
     humanReview: { status: "pending", reviewerNotes: "", updatedAt: null },
   };
 }
@@ -92,6 +94,8 @@ export async function getRunStatus(runId: string): Promise<RunStatus> {
     reviewPackage: mockReviewPackage,
     observabilitySteps: [],
     events: [],
+    agentsUsed: [],
+    tasksUsed: [],
     humanReview: { status: "pending", reviewerNotes: "", updatedAt: null },
   };
 }

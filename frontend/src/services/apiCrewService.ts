@@ -26,6 +26,12 @@ interface ApiRunRecord {
   runtime_error?: string | null;
   review_package_parse_status?: string;
   llm_kickoff_attempted?: boolean;
+  crew_name?: string | null;
+  process?: string | null;
+  crewai_kickoff_attempted?: boolean;
+  crewai_kickoff_status?: "completed" | "error" | "not_configured" | "not_applicable";
+  agents_used?: string[];
+  tasks_used?: string[];
   runtime_output?: ApiRuntimeOutput | null;
   updated_at: string;
   review_package?: ApiReviewPackage;
@@ -44,6 +50,7 @@ interface ApiRuntimeOutput {
   type: string;
   review_package_parse_status?: string;
   output_text?: string;
+  parse_error?: string;
   human_approval_required?: boolean;
   warnings?: string[];
   configuration_warnings?: string[];
@@ -202,6 +209,7 @@ const toRuntimeOutput = (api: ApiRuntimeOutput): RuntimeOutput => ({
   type: api.type,
   reviewPackageParseStatus: api.review_package_parse_status,
   outputText: api.output_text,
+  parseError: api.parse_error,
   humanApprovalRequired: api.human_approval_required,
   warnings: api.warnings,
   configurationWarnings: api.configuration_warnings,
@@ -218,6 +226,12 @@ const toRunStatus = (api: ApiRunRecord): RunStatus => ({
   runtimeError: api.runtime_error ?? null,
   reviewPackageParseStatus: api.review_package_parse_status,
   llmKickoffAttempted: api.llm_kickoff_attempted ?? false,
+  crewName: api.crew_name ?? null,
+  process: api.process ?? null,
+  crewaiKickoffAttempted: api.crewai_kickoff_attempted ?? false,
+  crewaiKickoffStatus: api.crewai_kickoff_status ?? "not_applicable",
+  agentsUsed: api.agents_used ?? [],
+  tasksUsed: api.tasks_used ?? [],
   runtimeOutput: api.runtime_output ? toRuntimeOutput(api.runtime_output) : null,
   lastUpdated: api.updated_at,
   reviewPackage: api.review_package ? toReviewPackage(api.review_package) : undefined,
@@ -246,7 +260,17 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
   return response.json() as Promise<T>;
 };
 
-export async function startRun(ticket: TicketInput, runtimeMode: RuntimeMode = "deterministic"): Promise<RunStatus> {
+export async function getApiHealth(): Promise<{ status: string; runtimeMode: string; service: string; providerConfigured: boolean }> {
+  const response = await request<{ status: string; runtime_mode: string; service: string; provider_configured?: boolean }>("/health");
+  return {
+    status: response.status,
+    runtimeMode: response.runtime_mode,
+    service: response.service,
+    providerConfigured: response.provider_configured ?? false,
+  };
+}
+
+export async function startRun(ticket: TicketInput, runtimeMode: RuntimeMode = "crewai_llm"): Promise<RunStatus> {
   const payload = {
     customerId: ticket.customerId,
     companyName: ticket.companyName,

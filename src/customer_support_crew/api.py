@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,7 +24,14 @@ from customer_support_crew.models import (
     SupportTicket,
 )
 from customer_support_crew.run_store import RunStore
-from customer_support_crew.runtime import RuntimeMode, run_support_workflow
+from customer_support_crew.runtime import (
+    CREW_AGENTS_USED,
+    CREW_NAME,
+    CREW_PROCESS,
+    CREW_TASKS_USED,
+    RuntimeMode,
+    run_support_workflow,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -53,7 +61,7 @@ class TicketPayload(BaseModel):
     account_status: str = Field(default="active", alias="accountStatus")
     assigned_csm: str | None = Field(default=None, alias="assignedCsm")
     risk_level: Literal["low", "medium", "high"] = Field(default="high", alias="riskLevel")
-    runtime_mode: RuntimeMode = Field(default="deterministic", alias="runtimeMode")
+    runtime_mode: RuntimeMode = Field(default="crewai_llm", alias="runtimeMode")
 
     model_config = {"populate_by_name": True}
 
@@ -98,6 +106,22 @@ def _build_ticket(payload: TicketPayload) -> SupportTicket:
         product_area=payload.product_area,
         customer_metadata=metadata,
     )
+
+
+def _provider_configured() -> bool:
+    if os.getenv("OPENAI_API_KEY"):
+        return True
+    env_path = PROJECT_ROOT / ".env"
+    if not env_path.exists():
+        return False
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        if key.strip() == "OPENAI_API_KEY" and bool(value.strip().strip('"').strip("'")):
+            return True
+    return False
 
 
 def _step(name: str, summary: str) -> dict:
@@ -368,7 +392,9 @@ def _history_item(record: dict) -> dict:
 def health() -> dict:
     return {
         "status": "ok",
-        "runtime_mode": "deterministic",
+        "runtime_mode": "crewai_llm",
+        "primary_runtime_mode": "crewai_llm",
+        "provider_configured": _provider_configured(),
         "service": "customer-support-crew-api",
         "observability": {"mode": "local", "events": "enabled", "metrics": "enabled"},
     }
@@ -396,6 +422,12 @@ def create_run(payload: TicketPayload) -> dict:
     runtime_output = None
     review_package_parse_status = "not_applicable"
     llm_kickoff_attempted = False
+    crew_name = None
+    process = None
+    crewai_kickoff_attempted = False
+    crewai_kickoff_status = "not_applicable"
+    agents_used: list[str] = []
+    tasks_used: list[str] = []
 
     if requested_runtime_mode == "deterministic":
         flow = CustomerSupportFlow(DEFAULT_KNOWLEDGE_BASE)
@@ -406,6 +438,7 @@ def create_run(payload: TicketPayload) -> dict:
             runtime_status = "success"
             runtime_error = None
             review_package_parse_status = "parsed"
+            crewai_kickoff_status = "not_applicable"
             events.append(_safe_event(run_id, trace_id, "runtime_completed", "Deterministic runtime completed."))
         except Exception as exc:
             review_package = None
@@ -444,6 +477,12 @@ def create_run(payload: TicketPayload) -> dict:
         runtime_error = runtime_result.runtime_error
         review_package_parse_status = runtime_result.review_package_parse_status
         llm_kickoff_attempted = runtime_result.llm_kickoff_attempted
+        crew_name = runtime_result.crew_name
+        process = runtime_result.process
+        crewai_kickoff_attempted = runtime_result.crewai_kickoff_attempted
+        crewai_kickoff_status = runtime_result.crewai_kickoff_status
+        agents_used = runtime_result.agents_used or []
+        tasks_used = runtime_result.tasks_used or []
         status = "done" if runtime_result.runtime_status == "success" else "error"
         events.append(
             _safe_event(
@@ -457,9 +496,27 @@ def create_run(payload: TicketPayload) -> dict:
                     "actual_runtime_mode": actual_runtime_mode,
                     "runtime_status": runtime_status,
                     "llm_kickoff_attempted": llm_kickoff_attempted,
+                    "crewai_kickoff_attempted": crewai_kickoff_attempted,
+                    "crewai_kickoff_status": crewai_kickoff_status,
                 },
             )
         )
+        if requested_runtime_mode == "crewai_llm":
+            events.append(
+                _safe_event(
+                    run_id,
+                    trace_id,
+                    "task_completed" if status == "done" else "error",
+                    f"{CREW_NAME} sequential crew execution status: {crewai_kickoff_status}.",
+                    metadata={
+                        "crew_name": CREW_NAME,
+                        "process": CREW_PROCESS,
+                        "agents_used": CREW_AGENTS_USED,
+                        "tasks_used": CREW_TASKS_USED,
+                        "review_package_parse_status": review_package_parse_status,
+                    },
+                )
+            )
 
     finished_at = _dt_now()
     metrics = _metrics(run_id, trace_id, actual_runtime_mode, status, started_at, finished_at, step_metrics, runtime_error)
@@ -484,6 +541,12 @@ def create_run(payload: TicketPayload) -> dict:
         "runtime_error": runtime_error,
         "review_package_parse_status": review_package_parse_status,
         "llm_kickoff_attempted": llm_kickoff_attempted,
+        "crew_name": crew_name,
+        "process": process,
+        "crewai_kickoff_attempted": crewai_kickoff_attempted,
+        "crewai_kickoff_status": crewai_kickoff_status,
+        "agents_used": agents_used,
+        "tasks_used": tasks_used,
         "ticket": ticket.model_dump(mode="json"),
         "review_package": review_package.model_dump(mode="json") if review_package else None,
         "runtime_output": runtime_output,

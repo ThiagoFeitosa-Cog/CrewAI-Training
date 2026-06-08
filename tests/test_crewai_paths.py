@@ -18,6 +18,7 @@ from customer_support_crew.crewai_flow import (
 )
 from customer_support_crew.crewai_main import _configure_provider_environment, _load_local_env, main as crewai_main
 from customer_support_crew.models import ReviewPackage
+from customer_support_crew.runtime import parse_review_package_from_crewai_output
 from customer_support_crew.tools.crewai_local_knowledge_tool import CrewAILocalKnowledgeTool
 
 
@@ -105,6 +106,16 @@ class CrewAIPathTests(unittest.TestCase):
 
         self.assertIn("api-sync-troubleshooting", result)
         self.assertIn("retrieval_confidence", result)
+
+    def test_crewai_output_parser_accepts_review_package_json(self) -> None:
+        review_package = run_customer_support_flow()
+        parsed, parse_error = parse_review_package_from_crewai_output(
+            f"```json\n{review_package.model_dump_json()}\n```"
+        )
+
+        self.assertIsNone(parse_error)
+        self.assertIsInstance(parsed, ReviewPackage)
+        self.assertTrue(parsed.human_approval_required)
 
 
 if __name__ == "__main__":

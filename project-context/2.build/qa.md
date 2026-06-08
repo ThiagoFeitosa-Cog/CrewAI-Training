@@ -470,3 +470,290 @@ PASS
 ### Non-Blocking Follow-Up
 
 - Add browser-level visual regression checks if the project later adds a formal end-to-end test harness.
+
+---
+
+## UX/UI Persona Redesign Validation
+
+### Scope
+
+- Persona: Development Crew with UX Designer, UI Designer, Design Reviewer, Frontend Engineer, and QA Engineer
+- Date: 2026-06-08
+- Scope: presentation-ready frontend UX/UI refinement using dedicated AAMAD/Codex design personas
+
+### Commands Executed
+
+```bash
+npm run build
+npm test
+PYTHONPATH=src .venv/bin/python -m unittest discover tests
+curl -s http://127.0.0.1:8000/health
+```
+
+### Results
+
+- Frontend production build passed.
+- Frontend tests passed: 5 tests.
+- Backend tests passed: 15 tests.
+- Backend API health endpoint returned `status=ok`.
+- Runtime mode labels remain user-friendly: Local deterministic, CrewAI Flow, and CrewAI LLM.
+- Runtime helper text explains the selected mode without exposing secrets or provider details.
+- Run Details explicitly shows human review as required.
+- Observability and performance details remain visible as secondary sections.
+- Token and cost metrics clearly state when they are unavailable in deterministic mode.
+
+### Design Review Verdict
+
+PASS
+
+The UI is ready for a live presentation with non-blocking limitations only. It is understandable from the Dashboard, follows a clean Dashboard to New Run to Run Details to History flow, and keeps human review visible.
+
+### QA Verdict
+
+PASS
+
+### Non-Blocking Follow-Up
+
+- Add formal end-to-end browser tests later if presentation flow becomes a graded acceptance gate.
+
+---
+
+## Modern SaaS Visual Redesign Validation
+
+### Scope
+
+- Persona: Development Crew with UX Designer, UI Designer, Frontend Engineer, Design Reviewer, QA Engineer, and Project Manager
+- Date: 2026-06-08
+- Scope: serious visual redesign for a presentation-ready B2B SaaS product experience
+
+### Commands Executed
+
+```bash
+npm run build
+npm test
+PYTHONPATH=src .venv/bin/python -m unittest discover tests
+curl -s http://127.0.0.1:8000/health
+```
+
+### Results
+
+- Frontend production build passed.
+- Frontend tests passed: 5 tests.
+- Backend tests passed: 15 tests.
+- Backend API health endpoint returned `status=ok`.
+- Browser validation confirmed:
+  - Dashboard loads first and shows product wordmark, hero, metrics, recent runs, and API status.
+  - Dashboard does not show dense observability logs.
+  - New Support Run uses segmented runtime cards instead of a raw select.
+  - Run Analysis creates a backend run and opens Run Details.
+  - Run Details shows the executive summary, agent results, Human Review, and secondary Technical visibility section.
+  - History shows filter pills and board-style rows with status/runtime/review pills.
+
+### Design Review Verdict
+
+PASS
+
+The frontend now reads more like a modern B2B SaaS product than a technical debug page. Visual hierarchy, spacing, colors, status pills, runtime clarity, and human review prominence are improved enough for a live presentation.
+
+### QA Verdict
+
+PASS
+
+### Non-Blocking Follow-Up
+
+- Add screenshot-based visual regression tests if visual design becomes a formal deliverable.
+- Consider adding a compact demo data reset command later to keep the dashboard metrics tidy before presentations.
+
+---
+
+## Progressive Disclosure UX Validation
+
+### Scope
+
+- Persona: Development Crew with UX Designer, UI Designer, Frontend Engineer, Design Reviewer, QA Engineer, and Project Manager
+- Date: 2026-06-08
+- Scope: final presentation UX cleanup focused on reducing first-level technical clutter
+
+### Commands Executed
+
+```bash
+npm run build
+npm test
+PYTHONPATH=src .venv/bin/python -m unittest discover tests
+curl -s http://127.0.0.1:8000/health
+```
+
+### Browser Validation
+
+- Dashboard opens first with product hero, metrics, recent runs, primary CTA, and API status.
+- Dashboard keeps technical observability hidden.
+- New Support Run shows a focused form, runtime selector cards, and a helper card explaining the workflow.
+- Run Analysis creates a backend run and opens Run Details.
+- Run Details shows Executive Summary, Agent Results, Human review checkpoint, and Technical visibility.
+- Run metadata, agent details, runtime events, performance, and runtime details are available through collapsible panels.
+- History renders filters and the required run table columns.
+
+### Results
+
+- Frontend production build passed.
+- Frontend tests passed: 5 tests.
+- Backend tests passed: 15 tests.
+- Backend API health endpoint returned `status=ok`.
+- No backend API redesign was introduced.
+- No secrets, authentication, database, deployment, CRM integration, or auto-send behavior were introduced.
+
+### Design Review Verdict
+
+PASS
+
+The UI now prioritizes the product story: analyze a ticket, understand the recommended action, and make a human review decision. Observability and runtime details remain available but no longer dominate the presentation.
+
+### QA Verdict
+
+PASS
+
+---
+
+## High-Quality UI Polish Validation
+
+### Scope
+
+- Persona: Development Crew with UI Designer, UX Designer, Frontend Engineer, Design Reviewer, QA Engineer, and Project Manager
+- Date: 2026-06-08
+- Scope: targeted visual polish pass for live presentation readiness
+
+### Commands Executed
+
+```bash
+npm run build
+npm test
+PYTHONPATH=src .venv/bin/python -m unittest discover tests
+```
+
+### Browser Validation
+
+- Header is fixed at the top of the viewport and reads as a real app navbar.
+- Header contains brand, Dashboard, New Run, History, and API status.
+- Redundant header CTA was removed; `New Run` is no longer competing with `New support run`.
+- Dashboard loads first with hero, metrics, recent runs, and no first-level technical diagnostics.
+- New Run form renders with runtime selector cards and helper guidance.
+- Run Analysis creates a backend run and opens Run Details.
+- Run Details shows Executive Summary, Agent Results, Human review checkpoint, and secondary Technical visibility.
+- Observability/performance details remain accessible through collapsed panels.
+- History renders filters and the required table columns.
+
+### Results
+
+- Frontend production build passed.
+- Frontend tests passed: 5 tests.
+- Backend tests passed: 15 tests.
+- No backend behavior or API contracts were changed.
+- No secrets, authentication, database, deployment, CRM integration, or auto-send behavior were introduced.
+
+### Design Review Verdict
+
+PASS
+
+The header, typography, card treatment, status pills, and dashboard rhythm now feel more like a polished B2B SaaS product and less like a styled wireframe. Remaining limitations are presentation-data hygiene, not visual structure.
+
+### QA Verdict
+
+PASS
+
+---
+
+## Premium SaaS Redesign Validation
+
+### Scope
+
+- Persona: Development Crew with UX Designer, UI Designer, Frontend Engineer, Design Reviewer, QA Engineer, and Project Manager
+- Date: 2026-06-08
+- Scope: benchmark-driven redesign for a mature B2B SaaS support operations product experience
+
+### Commands Executed
+
+```bash
+npm run build
+npm test
+PYTHONPATH=src .venv/bin/python -m unittest discover tests
+```
+
+### Browser Validation
+
+- Dashboard loads first as a support operations cockpit.
+- Sidebar product shell renders brand, Dashboard, New Run, History, and subtle API status.
+- Dashboard includes KPI cards, Needs Attention, latest activity, recent runs, and no first-level technical diagnostics.
+- New Run renders as a guided three-step workspace.
+- Runtime selector preserves Local deterministic, CrewAI Flow, and CrewAI LLM modes.
+- Run Analysis creates a backend run and opens Run Details.
+- Run Details prioritizes Executive Summary, Draft Response Review, Agent Results, Human review checkpoint, and secondary Technical visibility.
+- Technical details remain available through collapsed sections.
+- History renders filters and the required table columns.
+
+### Results
+
+- Frontend production build passed.
+- Frontend tests passed: 5 tests.
+- Backend tests passed: 15 tests.
+- No backend behavior or API contracts were changed.
+- No secrets, authentication, database, deployment, CRM integration, or auto-send behavior were introduced.
+
+### Design Review Verdict
+
+PASS
+
+The frontend now reads as a support operations workspace with clearer product identity, stronger information hierarchy, and better decision-first Run Details. It is no longer structured like a technical POC dashboard.
+
+### QA Verdict
+
+PASS
+
+---
+
+## Responsive Drawer Navigation Validation
+
+### Scope
+
+- Persona: Development Crew with UX Designer, UI Designer, Frontend Engineer, Design Reviewer, QA Engineer, and Project Manager
+- Date: 2026-06-08
+- Scope: focused app shell refinement for desktop expanded/collapsed sidebar and mobile drawer navigation
+
+### Commands Executed
+
+```bash
+npm run build
+npm test
+PYTHONPATH=src .venv/bin/python -m unittest discover tests
+```
+
+### Browser Validation
+
+- Desktop expanded sidebar is fixed to the left viewport edge at 280px.
+- Desktop collapsed sidebar is fixed at 84px.
+- Main workspace padding adjusts when sidebar expands or collapses.
+- Collapsed sidebar hides labels and leaves icon navigation plus compact API status.
+- Mobile/tablet breakpoint hides the permanent sidebar.
+- Mobile topbar appears with hamburger, brand, and compact API status.
+- Hamburger opens the left drawer and backdrop.
+- Drawer closes when a nav item is clicked.
+- Drawer closes when the backdrop is clicked.
+- Escape key closes the drawer.
+- Dashboard, New Run, History, and Run Details remained functional.
+
+### Results
+
+- Frontend production build passed.
+- Frontend tests passed: 5 tests.
+- Backend tests passed: 15 tests.
+- No backend behavior or API contracts were changed.
+- No secrets, authentication, database, deployment, CRM integration, or auto-send behavior were introduced.
+
+### Design Review Verdict
+
+PASS
+
+The sidebar now behaves like an integrated application drawer instead of a floating card. Desktop and mobile navigation patterns are clear, responsive, and demo-ready.
+
+### QA Verdict
+
+PASS

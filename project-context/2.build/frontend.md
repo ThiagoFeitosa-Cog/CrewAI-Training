@@ -29,6 +29,55 @@ The app now uses a simple internal multi-view structure:
 
 This keeps the demo flow clear while preserving the technical evidence needed for the course deliverable.
 
+The latest premium redesign uses a responsive drawer/sidebar product shell to make the app feel like a support operations workspace rather than a document-style technical demo:
+
+- Desktop sidebar navigation anchors Dashboard, New Run, and History.
+- Desktop sidebar supports expanded and collapsed states. Collapsed mode shows icons, tooltip titles, and compact API status.
+- Mobile/tablet uses a top app bar with a hamburger button and left drawer overlay.
+- Dashboard acts as an operations cockpit with KPIs, Needs Attention, latest activity, and recent runs.
+- New Run is organized as a guided three-step workspace: ticket details, runtime mode, and run analysis.
+- Run Details acts as a review console, prioritizing recommendation, escalation risk, draft response review, human decision, and then technical visibility.
+- History remains a lightweight support operations board.
+
+The latest UX pass applies progressive disclosure:
+
+- Run metadata is collapsed below the executive summary.
+- Agent cards show the main result first and hide rationale/draft detail behind `View details`.
+- Observability is secondary and grouped into collapsible panels for agent activity, runtime events, performance, and runtime details.
+- The New Support Run view includes a helper card that explains the workflow and recommends the safest demo runtime.
+
+## Visual Design System
+
+The current presentation UI uses a modern B2B SaaS visual system inspired by work-management product patterns without copying any proprietary brand, logo, text, or assets.
+
+Key visual decisions:
+
+- CSS variables define the color system in `frontend/src/styles.css`.
+- The app shell uses a `SupportCrew AI` wordmark, dark navy fixed desktop sidebar navigation, responsive mobile topbar/drawer, and subtle API status pill.
+- The redundant header-level `New support run` CTA was removed so navigation and contextual page CTAs do not compete.
+- Dashboard uses a hero card, metric cards, and a recent-runs board instead of technical logs.
+- Runtime selection uses segmented cards instead of a raw select control.
+- Runtime cards include plain-language helper text and hover guidance.
+- Run Details uses a compact run header, executive summary card, draft response review panel, agent insight grid, prominent Human Review card, and a lower-priority Technical visibility section.
+- Technical details use expandable panels rather than a first-level debug wall.
+- History uses filter pills, status/runtime pills, and board-style table rows.
+- Typography, shadows, border radii, status pills, and table spacing were refined for a more polished SaaS presentation feel.
+
+## UX/UI Persona Collaboration
+
+The presentation redesign was reviewed through three AAMAD/Codex development personas:
+
+- UX Designer (`.cursor/agents/ux-designer.md`): clarified the Dashboard to New Run to Run Details to History journey and reduced cognitive load.
+- UI Designer (`.cursor/agents/ui-designer.md`): focused the visual system on restrained B2B SaaS spacing, typography, cards, tables, badges, and buttons.
+- Design Reviewer (`.cursor/agents/design-reviewer.md`): checked demo readiness, human review visibility, runtime clarity, and observability balance.
+
+Resulting frontend refinements:
+
+- Runtime modes use friendly labels, helper text, and segmented cards.
+- Run Details leads with recommended action, escalation status, and human review required status.
+- Observability and performance remain visible but secondary.
+- Token and cost metrics explicitly state when they are unavailable in deterministic mode.
+
 ## User Journey
 
 1. User opens the app and lands on the Dashboard.
@@ -132,4 +181,3 @@ The frontend includes lightweight tests for:
 - Run creation and Run Details navigation.
 - Human review controls and submission.
 - History table rendering.
-
