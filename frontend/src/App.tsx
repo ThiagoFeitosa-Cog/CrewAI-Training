@@ -1,8 +1,24 @@
 import { AlertTriangle, CheckCircle2, Clock, RotateCcw, Save, Send, XCircle } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
-import { getRunHistory, getRunStatus, startRun, submitReview } from "./services/apiCrewService";
-import type { CrewStatus, HumanReviewState, ReviewPackage, RunHistoryItem, RunStatus, TicketInput } from "./types";
+import {
+  getObservabilitySummary,
+  getRunHistory,
+  getRunStatus,
+  startRun,
+  submitReview,
+  subscribeRunEvents,
+} from "./services/apiCrewService";
+import type {
+  CrewStatus,
+  HumanReviewState,
+  ObservabilityAggregateSummary,
+  ReviewPackage,
+  RuntimeMode,
+  RunHistoryItem,
+  RunStatus,
+  TicketInput,
+} from "./types";
 import "./styles.css";
 
 const seededTicket: TicketInput = {
@@ -22,6 +38,19 @@ const statusCopy: Record<CrewStatus, string> = {
   error: "Crew: error",
 };
 
+const runtimeLabels: Record<RuntimeMode | string, string> = {
+  deterministic: "Local deterministic",
+  crewai_flow: "CrewAI Flow",
+  crewai_flow_fallback: "CrewAI Flow fallback",
+  crewai_llm: "CrewAI LLM",
+};
+
+const runtimeOptions: Array<{ value: RuntimeMode; label: string }> = [
+  { value: "deterministic", label: "Local deterministic" },
+  { value: "crewai_flow", label: "CrewAI Flow" },
+  { value: "crewai_llm", label: "CrewAI LLM" },
+];
+
 function StatusIcon({ status }: { status: CrewStatus }) {
   if (status === "done") return <CheckCircle2 aria-hidden="true" />;
   if (status === "error") return <XCircle aria-hidden="true" />;
@@ -34,8 +63,10 @@ function App() {
   const [status, setStatus] = useState<CrewStatus>("idle");
   const [lastUpdated, setLastUpdated] = useState<string>(new Date().toISOString());
   const [reviewPackage, setReviewPackage] = useState<ReviewPackage | null>(null);
+  const [runtimeMode, setRuntimeMode] = useState<RuntimeMode>("deterministic");
   const [latestRun, setLatestRun] = useState<RunStatus | null>(null);
   const [history, setHistory] = useState<RunHistoryItem[]>([]);
+  const [observabilitySummary, setObservabilitySummary] = useState<ObservabilityAggregateSummary | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [reviewDecision, setReviewDecision] = useState<HumanReviewState["status"]>("approved");
   const [reviewerNotes, setReviewerNotes] = useState<string>("");
@@ -46,8 +77,13 @@ function App() {
     setHistory(await getRunHistory());
   };
 
+  const refreshObservabilitySummary = async () => {
+    setObservabilitySummary(await getObservabilitySummary());
+  };
+
   useEffect(() => {
     void refreshHistory().catch(() => undefined);
+    void refreshObservabilitySummary().catch(() => undefined);
   }, []);
 
   const updateTicket = (field: keyof TicketInput, value: string) => {
@@ -60,6 +96,7 @@ function App() {
     setStatus(run.status);
     setLastUpdated(run.lastUpdated);
     setReviewerNotes(run.humanReview.reviewerNotes);
+    setErrorMessage(run.runtimeError ?? run.errorMessage ?? "");
   };
 
   const runCrew = async () => {
@@ -69,20 +106,40 @@ function App() {
       setStatus("running");
       setLastUpdated(new Date().toISOString());
 
-      const started = await startRun(ticket);
+      const started = await startRun(ticket, runtimeMode);
       applyRun(started);
+      if (started.status === "error") {
+        await refreshHistory();
+        await refreshObservabilitySummary();
+        return;
+      }
+      const unsubscribe = subscribeRunEvents(
+        started.runId,
+        (events) => {
+          setLatestRun((current) => (current ? { ...current, events } : current));
+        },
+        () => undefined,
+      );
 
       const completed = await getRunStatus(started.runId);
+      unsubscribe();
       applyRun(completed);
       await refreshHistory();
+      await refreshObservabilitySummary();
     } catch (error) {
       const message = error instanceof Error ? error.message : "The crew run failed.";
       const failedRun = {
         runId: latestRun?.runId ?? "not-started",
+        traceId: latestRun?.traceId ?? "not-started",
         status: "error" as CrewStatus,
         runtimeMode: "deterministic",
+        requestedRuntimeMode: runtimeMode,
+        actualRuntimeMode: latestRun?.actualRuntimeMode ?? runtimeMode,
+        runtimeStatus: "error" as const,
+        runtimeError: message,
         lastUpdated: new Date().toISOString(),
         observabilitySteps: [],
+        events: [],
         humanReview: { status: "pending" as const, reviewerNotes: "", updatedAt: null },
         errorMessage: message,
       };
@@ -103,6 +160,7 @@ function App() {
     const reviewed = await submitReview(latestRun.runId, reviewDecision, reviewerNotes);
     applyRun(reviewed);
     await refreshHistory();
+    await refreshObservabilitySummary();
   };
 
   const reset = () => {
@@ -125,6 +183,9 @@ function App() {
           <span className="status-pill">{status}</span>
           {latestRun && <span className="runtime-pill">{latestRun.runtimeMode}</span>}
         </div>
+        {latestRun && latestRun.actualRuntimeMode !== latestRun.requestedRuntimeMode && (
+          <span>Actual runtime used: {runtimeLabels[latestRun.actualRuntimeMode] ?? latestRun.actualRuntimeMode}</span>
+        )}
         <span>Last updated: {formattedUpdated}</span>
       </section>
 
@@ -169,6 +230,16 @@ function App() {
               Message
               <textarea value={ticket.message} onChange={(e) => updateTicket("message", e.target.value)} required />
             </label>
+            <label>
+              Runtime mode
+              <select value={runtimeMode} onChange={(event) => setRuntimeMode(event.target.value as RuntimeMode)}>
+                {runtimeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             {status === "error" && <p className="inline-error">{errorMessage}</p>}
             <div className="button-row">
               <button type="submit" disabled={status === "running"}>
@@ -199,6 +270,9 @@ function App() {
                   <span>
                     {run.status} · review {run.reviewStatus}
                   </span>
+                  <span>
+                    runtime {runtimeLabels[run.actualRuntimeMode] ?? run.actualRuntimeMode}
+                  </span>
                   <small>{new Date(run.updatedAt).toLocaleString()}</small>
                 </article>
               ))}
@@ -209,16 +283,78 @@ function App() {
         </section>
       </div>
 
+      <section className="panel observability-summary" aria-labelledby="observability-summary-heading">
+        <h2 id="observability-summary-heading">Observability Summary</h2>
+        {observabilitySummary ? (
+          <div className="metric-grid">
+            <Metric label="Total runs" value={observabilitySummary.totalRuns} />
+            <Metric label="Completed" value={observabilitySummary.completedRuns} />
+            <Metric label="Errors" value={observabilitySummary.errorRuns} />
+            <Metric
+              label="Average wall time"
+              value={formatDuration(observabilitySummary.averageWallTimeMs)}
+            />
+            <Metric label="Latest run" value={observabilitySummary.latestRunId ?? "none"} />
+            <Metric label="Deterministic runs" value={observabilitySummary.deterministicModeRuns} />
+            <Metric label="CrewAI Flow runs" value={observabilitySummary.crewaiFlowModeRuns ?? 0} />
+            <Metric label="CrewAI LLM runs" value={observabilitySummary.llmModeRuns} />
+          </div>
+        ) : (
+          <p>Run observability summary is not available yet.</p>
+        )}
+      </section>
+
       <section className="panel results-panel" aria-labelledby="results-heading">
         <h2 id="results-heading">Review Package</h2>
         {status === "idle" && <p>Run the crew to generate a backend ReviewPackage.</p>}
         {status === "running" && <p>Crew: running. The backend is classifying, retrieving, drafting, routing, and checking escalation.</p>}
         {status === "error" && <p className="inline-error">{errorMessage}</p>}
         {status === "done" && reviewPackage && <ReviewPackageView reviewPackage={reviewPackage} />}
+        {status === "done" && latestRun?.runtimeOutput && <RuntimeOutputView latestRun={latestRun} />}
       </section>
 
       {latestRun && (
         <div className="layout-grid lower-grid">
+          <section className="panel" aria-labelledby="correlation-heading">
+            <h2 id="correlation-heading">Run Correlation</h2>
+            <dl className="correlation-list">
+              <div>
+                <dt>run_id</dt>
+                <dd>{latestRun.runId}</dd>
+              </div>
+              <div>
+                <dt>trace_id</dt>
+                <dd>{latestRun.traceId}</dd>
+              </div>
+              <div>
+                <dt>requested runtime</dt>
+                <dd>{runtimeLabels[latestRun.requestedRuntimeMode] ?? latestRun.requestedRuntimeMode}</dd>
+              </div>
+              <div>
+                <dt>actual runtime</dt>
+                <dd>{runtimeLabels[latestRun.actualRuntimeMode] ?? latestRun.actualRuntimeMode}</dd>
+              </div>
+              <div>
+                <dt>runtime status</dt>
+                <dd>{latestRun.runtimeStatus}</dd>
+              </div>
+              {latestRun.runtimeError && (
+                <div>
+                  <dt>runtime error</dt>
+                  <dd>{latestRun.runtimeError}</dd>
+                </div>
+              )}
+              <div>
+                <dt>LLM kickoff attempted</dt>
+                <dd>{latestRun.llmKickoffAttempted ? "yes" : "no"}</dd>
+              </div>
+              <div>
+                <dt>status</dt>
+                <dd>{latestRun.status}</dd>
+              </div>
+            </dl>
+          </section>
+
           <section className="panel" aria-labelledby="activity-heading">
             <h2 id="activity-heading">Agent Activity</h2>
             <ol className="activity-list">
@@ -230,6 +366,48 @@ function App() {
                 </li>
               ))}
             </ol>
+          </section>
+
+          <section className="panel" aria-labelledby="timeline-heading">
+            <h2 id="timeline-heading">Event Timeline</h2>
+            <ol className="timeline-list">
+              {latestRun.events.map((event) => (
+                <li key={event.eventId}>
+                  <strong>{event.eventType.replace(/_/g, " ")}</strong>
+                  <span>{event.stepName ? event.stepName.replace(/_/g, " ") : "run"}</span>
+                  <p>{event.safeSummary}</p>
+                  <small>
+                    {new Date(event.timestamp).toLocaleTimeString()} · {formatDuration(event.durationMs)}
+                  </small>
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          <section className="panel" aria-labelledby="performance-heading">
+            <h2 id="performance-heading">Performance</h2>
+            {latestRun.metrics ? (
+              <>
+                <div className="metric-grid">
+                  <Metric label="Wall time" value={formatDuration(latestRun.metrics.wallTimeMs)} />
+                  <Metric label="Slowest step" value={latestRun.metrics.slowestStep ?? "n/a"} />
+                  <Metric label="Status" value={latestRun.metrics.status} />
+                  <Metric label="Token usage" value={latestRun.metrics.tokenUsage ? "Available" : "Not available in deterministic mode"} />
+                  <Metric label="Cost estimate" value={latestRun.metrics.costEstimate ? "Available" : "Not available in deterministic mode"} />
+                </div>
+                <ol className="activity-list compact-list">
+                  {latestRun.metrics.stepMetrics.map((step) => (
+                    <li key={`${step.stepName}-${step.startedAt}`}>
+                      <strong>{step.stepName.replace(/_/g, " ")}</strong>
+                      <span>{formatDuration(step.durationMs)}</span>
+                      <p>{step.status}</p>
+                    </li>
+                  ))}
+                </ol>
+              </>
+            ) : (
+              <p>Performance metrics are not available for this run.</p>
+            )}
           </section>
 
           <section className="panel" aria-labelledby="human-review-heading">
@@ -258,6 +436,51 @@ function App() {
       )}
     </main>
   );
+}
+
+function RuntimeOutputView({ latestRun }: { latestRun: RunStatus }) {
+  const output = latestRun.runtimeOutput;
+  if (!output) return null;
+
+  return (
+    <div className="runtime-output">
+      <h3>CrewAI Runtime Output</h3>
+      <p className="approval-note">Human approval required. This output has not been sent to the customer.</p>
+      <dl className="correlation-list">
+        <div>
+          <dt>Parse status</dt>
+          <dd>{output.reviewPackageParseStatus ?? latestRun.reviewPackageParseStatus ?? "not_applicable"}</dd>
+        </div>
+        <div>
+          <dt>Output type</dt>
+          <dd>{output.type}</dd>
+        </div>
+      </dl>
+      {output.configurationWarnings?.length ? (
+        <ul>
+          {output.configurationWarnings.map((warning) => (
+            <li key={warning}>{warning}</li>
+          ))}
+        </ul>
+      ) : null}
+      {output.outputText && <pre className="runtime-output-text">{output.outputText}</pre>}
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="metric-card">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function formatDuration(durationMs?: number | null) {
+  if (durationMs === null || durationMs === undefined) return "n/a";
+  if (durationMs < 1000) return `${Math.round(durationMs)} ms`;
+  return `${(durationMs / 1000).toFixed(2)} s`;
 }
 
 function ReviewPackageView({ reviewPackage }: { reviewPackage: ReviewPackage }) {

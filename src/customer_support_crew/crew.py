@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import inspect
 from pathlib import Path
 
 from customer_support_crew.tools.crewai_local_knowledge_tool import CrewAILocalKnowledgeTool
@@ -37,6 +38,20 @@ except ImportError:  # pragma: no cover - CrewAI is optional for the local deter
 
 
 CONFIG_DIR = Path(__file__).parent / "config"
+
+
+def _tracing_enabled() -> bool:
+    return os.getenv("CREWAI_TRACING_ENABLED", "false").lower() == "true"
+
+
+def _supports_kwarg(callable_obj, kwarg: str) -> bool:
+    try:
+        signature = inspect.signature(callable_obj)
+    except (TypeError, ValueError):
+        return False
+    return kwarg in signature.parameters or any(
+        parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in signature.parameters.values()
+    )
 
 
 @CrewBase
@@ -113,11 +128,14 @@ class CustomerSupportCrew:
     def crew(self):
         if Crew is None:
             raise RuntimeError("CrewAI is not installed. Install the optional 'crewai' dependency to run this crew.")
-        return Crew(
-            agents=self.agents,
-            tasks=self.tasks,
-            process=Process.sequential,
-            verbose=True,
-            memory=False,
-            output_log_file="logs/crew.log",
-        )
+        crew_kwargs = {
+            "agents": self.agents,
+            "tasks": self.tasks,
+            "process": Process.sequential,
+            "verbose": True,
+            "memory": False,
+            "output_log_file": "logs/crew.log",
+        }
+        if _tracing_enabled() and _supports_kwarg(Crew, "tracing"):
+            crew_kwargs["tracing"] = True
+        return Crew(**crew_kwargs)

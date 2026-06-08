@@ -313,3 +313,114 @@ PASS
 
 - Add browser automation when available for visual click-through validation.
 - Add exact Pydantic normalization for optional live LLM output before using live mode as the default API runtime.
+
+---
+
+## Week 4 Observability and Performance Monitoring Validation
+
+### Scope
+
+- Persona: QA Engineer (`.cursor/agents/qa-eng.md`)
+- Date: 2026-06-08
+- Scope: local run observability, event timeline, metrics, SSE snapshot stream, frontend observability panels
+
+### Commands Executed
+
+```bash
+PYTHONPATH=src .venv/bin/python -m customer_support_crew.main
+PYTHONPATH=src .venv/bin/python -m unittest discover tests
+PYTHONPATH=src .venv/bin/python -m compileall src/customer_support_crew tests
+npm run build
+npm test
+curl -s http://127.0.0.1:8000/health
+curl -s -X POST http://127.0.0.1:8000/api/runs ...
+curl -s http://127.0.0.1:8000/api/runs/{run_id}
+curl -N http://127.0.0.1:8000/api/runs/{run_id}/events
+curl -s http://127.0.0.1:8000/api/runs/{run_id}/metrics
+curl -s http://127.0.0.1:8000/api/observability/summary
+curl -s -X POST http://127.0.0.1:8000/api/runs/{run_id}/review ...
+npm run build
+npm test
+```
+
+### Results
+
+- Deterministic CLI backend still returned a complete `ReviewPackage`.
+- Python tests passed: 13 tests.
+- Python compileall passed.
+- Frontend production build passed.
+- Frontend tests passed: 3 tests.
+- `GET /health` returned local observability status.
+- `POST /api/runs` returned `trace_id`, `events`, `metrics`, and `observability_summary`.
+- `trace_id` equals `run_id` in the local MVP.
+- `GET /api/runs/{run_id}/events` returned snapshot-style SSE events.
+- `GET /api/runs/{run_id}/metrics` returned wall time, step durations, slowest step, null token usage, and null cost estimate.
+- `GET /api/observability/summary` returned aggregate local metrics and latest run id by timestamp.
+- `POST /api/runs/{run_id}/review` appended a `review_submitted` event.
+- Browser validation confirmed the frontend renders run correlation, event timeline, performance panel, observability summary, ReviewPackage, Human Review, and history.
+- No secrets, raw prompts, provider messages, or API keys were exposed in events.
+
+### Verdict
+
+PASS
+
+### Non-Blocking Follow-Up
+
+- SSE is snapshot-style for the synchronous MVP. True live long-running streaming can be revisited if the backend becomes asynchronous.
+- Token and cost metrics remain unavailable in deterministic mode.
+
+---
+
+## Runtime Mode Integration Validation
+
+### Scope
+
+- Persona: QA Engineer (`.cursor/agents/qa-eng.md`)
+- Date: 2026-06-08
+- Scope: optional runtime selection across FastAPI, React, local observability, CrewAI Flow, and CrewAI LLM
+
+### Commands Executed
+
+```bash
+PYTHONPATH=src .venv/bin/python -m customer_support_crew.main
+PYTHONPATH=src .venv/bin/python -m unittest discover tests
+PYTHONPATH=src .venv/bin/python -m compileall src/customer_support_crew tests
+npm run build
+npm test
+PYTHONPATH=src .venv/bin/uvicorn customer_support_crew.api:app --host 127.0.0.1 --port 8000
+curl -s http://127.0.0.1:8000/health
+curl -s -X POST http://127.0.0.1:8000/api/runs ... runtimeMode=deterministic
+curl -s -X POST http://127.0.0.1:8000/api/runs ... runtimeMode=crewai_flow
+curl -s -X POST http://127.0.0.1:8000/api/runs ... runtimeMode=crewai_llm
+```
+
+### Results
+
+- Deterministic CLI backend still returned a complete `ReviewPackage`.
+- Python tests passed: 15 tests.
+- Python compileall passed.
+- Frontend production build passed.
+- Frontend tests passed: 5 tests.
+- `runtimeMode=deterministic` returned `status=done`, `requested_runtime_mode=deterministic`, `actual_runtime_mode=deterministic`, `runtime_status=success`, and a parsed `ReviewPackage`.
+- `runtimeMode=crewai_flow` returned `status=done`, `actual_runtime_mode=crewai_flow`, `runtime_status=success`, and a parsed `ReviewPackage`.
+- `runtimeMode=crewai_llm` attempted real `CustomerSupportCrew().crew().kickoff(inputs={...})`, returned `status=done`, `actual_runtime_mode=crewai_llm`, `runtime_status=success`, `llm_kickoff_attempted=true`, and safe `runtime_output`.
+- LLM output was not parsed into the local Pydantic `ReviewPackage`; `review_package_parse_status=not_parsed`.
+- Runtime events appeared in the event timeline: `runtime_selected`, `runtime_started`, and `runtime_completed`.
+- Frontend selector defaults to Local deterministic and sends selected runtime mode to the backend.
+- Frontend safe error handling for missing LLM configuration is covered by tests.
+
+### Scope Validation
+
+- `.env` was not modified or printed.
+- No provider secrets were exposed in frontend, logs, docs, tests, or summaries.
+- No CRM, authentication, database, deployment, or auto-send behavior was added.
+- No `Process.hierarchical` or `Process.consensual` usage was introduced.
+
+### Verdict
+
+PASS
+
+### Non-Blocking Follow-Up
+
+- Add strict parsing/normalization from live CrewAI LLM output into the local `ReviewPackage` schema.
+- Add optional token and cost metrics only if the provider exposes them safely.

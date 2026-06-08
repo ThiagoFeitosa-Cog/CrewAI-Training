@@ -73,10 +73,82 @@ API endpoints:
 - `GET /health`
 - `POST /api/runs`
 - `GET /api/runs/{run_id}`
+- `GET /api/runs/{run_id}/events`
+- `GET /api/runs/{run_id}/events-json`
+- `GET /api/runs/{run_id}/metrics`
+- `GET /api/observability/summary`
 - `POST /api/runs/{run_id}/review`
 - `GET /api/runs`
 
 Local run records are stored as JSON under `data/runs/`. These runtime JSON files are ignored by Git.
+
+### Full-Stack Runtime Modes
+
+`POST /api/runs` accepts an optional runtime selector:
+
+```json
+{
+  "customerId": "CUST-2048",
+  "companyName": "Northstar Analytics",
+  "planTier": "Enterprise",
+  "productArea": "Integrations",
+  "subject": "Urgent: API sync failed again before our renewal review",
+  "message": "Support ticket body",
+  "runtimeMode": "deterministic"
+}
+```
+
+Supported values:
+
+- `deterministic`: default safe local runtime. No provider key required. Returns a parsed `ReviewPackage`.
+- `crewai_flow`: uses the CrewAI Flow path when installed, or the explicit local fallback when CrewAI Flow is unavailable. No provider key required.
+- `crewai_llm`: uses `CustomerSupportCrew().crew().kickoff(inputs={...})`. Requires CrewAI plus `OPENAI_API_KEY`; uses `MODEL` and `OPENAI_API_BASE` when present.
+
+Run records include:
+
+- `requested_runtime_mode`
+- `actual_runtime_mode`
+- `runtime_status`
+- `runtime_error`
+- `llm_kickoff_attempted`
+- `review_package_parse_status`
+- `runtime_output`
+
+The LLM mode currently returns the CrewAI output in a safe `runtime_output` envelope. It does not automatically send anything to the customer. Exact Pydantic `ReviewPackage` parsing for live LLM output remains a follow-up.
+
+### Local Observability and Performance
+
+The integrated MVP records local, safe observability data for every API run. `run_id` is the correlation key across API responses, frontend UI, local JSON persistence, events, and metrics. `trace_id` is currently equal to `run_id`; it is ready to map to a provider trace id later if a real tracing backend is enabled.
+
+Each run stores:
+
+- safe product-facing events such as `run_started`, `task_started`, `task_completed`, `tool_used`, `run_completed`, `review_submitted`, and `error`
+- runtime events such as `runtime_selected`, `runtime_started`, `runtime_completed`, and `runtime_error`
+- step durations for classification, sentiment, retrieval, draft response, routing, escalation, and review package assembly
+- total wall time and slowest step
+- null token/cost metrics in deterministic mode
+
+Test event streaming with:
+
+```bash
+curl -N http://127.0.0.1:8000/api/runs/<run_id>/events
+```
+
+Fetch metrics with:
+
+```bash
+curl http://127.0.0.1:8000/api/runs/<run_id>/metrics
+curl http://127.0.0.1:8000/api/observability/summary
+```
+
+Optional CrewAI ecosystem tracing is prepared but not required. To experiment after local CrewAI/AMP setup, use a local `.env` only:
+
+```bash
+OBSERVABILITY_MODE=local
+CREWAI_TRACING_ENABLED=true
+```
+
+Do not commit `.env`. The deterministic backend, API, and frontend do not require CrewAI AMP login or paid provider access.
 
 Current local assets:
 
@@ -136,12 +208,15 @@ Full-stack local test:
 1. Start the backend API on `http://127.0.0.1:8000`.
 2. Start the frontend on `http://127.0.0.1:5173`.
 3. Open the frontend.
-4. Click `Run`.
-5. Confirm the ReviewPackage renders from the backend.
-6. Submit a human review decision.
-7. Confirm Run History updates.
+4. Select a runtime mode.
+5. Click `Run`.
+6. Confirm the ReviewPackage or runtime output renders from the backend.
+7. Confirm requested/actual runtime mode, run correlation, event timeline, performance metrics, and observability summary render.
+8. Submit a human review decision.
+9. Confirm Run History updates and the review event is recorded.
 
 Current frontend limitations:
 
 - No authentication, database persistence, deployment, streaming, cost dashboard, or automatic customer-facing response.
-- Default integrated runtime is deterministic. Live CrewAI LLM execution remains optional and guarded.
+- Local event streaming is a snapshot-style SSE stream for the synchronous MVP, not long-running live agent streaming.
+- Default integrated runtime is deterministic. Live CrewAI LLM execution remains optional and explicitly selected.

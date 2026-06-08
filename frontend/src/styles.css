@@ -307,11 +307,113 @@ article small {
   padding: 2px 8px;
 }
 
+.observability-summary {
+  margin-bottom: 18px;
+}
+
+.metric-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.metric-card {
+  background: #f7fafb;
+  border: 1px solid #dce5ea;
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.metric-card span {
+  color: #506672;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.metric-card strong,
+.correlation-list dd {
+  overflow-wrap: anywhere;
+}
+
+.correlation-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.correlation-list div {
+  border-bottom: 1px solid #e4eaee;
+  padding-bottom: 8px;
+}
+
+.correlation-list dt {
+  color: #506672;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.correlation-list dd {
+  margin: 0;
+}
+
+.timeline-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 22px;
+}
+
+.timeline-list li {
+  border-bottom: 1px solid #e4eaee;
+  padding-bottom: 10px;
+}
+
+.timeline-list span {
+  color: #506672;
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.timeline-list p {
+  margin: 4px 0;
+}
+
+.timeline-list small {
+  color: #506672;
+}
+
+.compact-list li {
+  display: grid;
+  gap: 4px;
+}
+
+.runtime-output {
+  margin-top: 18px;
+}
+
+.runtime-output-text {
+  background: #182026;
+  border-radius: 8px;
+  color: #eef2f5;
+  max-height: 360px;
+  overflow: auto;
+  padding: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 @media (max-width: 860px) {
   .page-header,
   .layout-grid,
   .field-grid,
-  .review-grid {
+  .review-grid,
+  .metric-grid {
     grid-template-columns: 1fr;
   }
 

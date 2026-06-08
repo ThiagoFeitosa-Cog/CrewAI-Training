@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -115,3 +115,66 @@ class ReviewPackage(BaseModel):
     human_approval_required: bool = True
     ready_for_human_review: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+RunEventType = Literal[
+    "run_started",
+    "runtime_selected",
+    "runtime_started",
+    "runtime_completed",
+    "runtime_error",
+    "task_started",
+    "task_completed",
+    "tool_used",
+    "run_completed",
+    "review_submitted",
+    "error",
+]
+
+
+class RunEvent(BaseModel):
+    event_id: str
+    run_id: str
+    trace_id: str
+    event_type: RunEventType
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    safe_summary: str
+    step_name: str | None = None
+    duration_ms: float | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class StepMetric(BaseModel):
+    step_name: str
+    status: Literal["completed", "error"]
+    started_at: datetime
+    finished_at: datetime
+    duration_ms: float
+
+
+class RunMetrics(BaseModel):
+    run_id: str
+    trace_id: str
+    runtime_mode: str
+    status: Literal["running", "done", "error"]
+    started_at: datetime
+    finished_at: datetime | None = None
+    wall_time_ms: float | None = None
+    step_metrics: list[StepMetric] = Field(default_factory=list)
+    slowest_step: str | None = None
+    error: str | None = None
+    token_usage: dict[str, Any] | None = None
+    cost_estimate: dict[str, Any] | None = None
+
+
+class ObservabilitySummary(BaseModel):
+    run_id: str
+    trace_id: str
+    runtime_mode: str
+    status: Literal["running", "done", "error"]
+    started_at: datetime
+    finished_at: datetime | None = None
+    wall_time_ms: float | None = None
+    slowest_step: str | None = None
+    event_count: int
+    error: str | None = None

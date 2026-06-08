@@ -64,10 +64,15 @@ export async function startRun(ticket: TicketInput): Promise<RunStatus> {
 
   return {
     runId: MOCK_RUN_ID,
+    traceId: MOCK_RUN_ID,
     status: "running",
     runtimeMode: "stub",
+    requestedRuntimeMode: "deterministic",
+    actualRuntimeMode: "stub",
+    runtimeStatus: "success",
     lastUpdated: new Date().toISOString(),
     observabilitySteps: [],
+    events: [],
     humanReview: { status: "pending", reviewerNotes: "", updatedAt: null },
   };
 }
@@ -77,11 +82,16 @@ export async function getRunStatus(runId: string): Promise<RunStatus> {
 
   return {
     runId,
+    traceId: runId,
     status: "done",
     runtimeMode: "stub",
+    requestedRuntimeMode: "deterministic",
+    actualRuntimeMode: "stub",
+    runtimeStatus: "success",
     lastUpdated: new Date().toISOString(),
     reviewPackage: mockReviewPackage,
     observabilitySteps: [],
+    events: [],
     humanReview: { status: "pending", reviewerNotes: "", updatedAt: null },
   };
 }

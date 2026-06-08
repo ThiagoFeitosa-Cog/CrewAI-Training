@@ -18,6 +18,8 @@
 - [x] Frontend / Review Interface
 - [x] Backend
 - [x] Integration
+- [x] Observability / Performance Monitoring
+- [x] Runtime Mode Integration
 - [x] QA
 
 ## Phase 3: Deliver

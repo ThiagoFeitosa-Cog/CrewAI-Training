@@ -33,6 +33,10 @@ DEFAULT_FIXTURE = PROJECT_ROOT / "data" / "fixtures" / "sample_ticket.json"
 DEFAULT_KNOWLEDGE_BASE = PROJECT_ROOT / "knowledge_base" / "support_kb.md"
 
 
+def _tracing_enabled() -> bool:
+    return os.getenv("CREWAI_TRACING_ENABLED", "false").lower() == "true"
+
+
 class CustomerSupportFlowState(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     ticket: SupportTicket | None = None
@@ -75,7 +79,7 @@ if CREWAI_FLOW_AVAILABLE:
             fixture_path: str | Path = DEFAULT_FIXTURE,
             knowledge_base_path: str | Path = DEFAULT_KNOWLEDGE_BASE,
         ) -> None:
-            super().__init__(tracing=False)
+            super().__init__(tracing=_tracing_enabled())
             self.fixture_path = Path(fixture_path)
             self.local_flow = CustomerSupportFlow(knowledge_base_path)
 

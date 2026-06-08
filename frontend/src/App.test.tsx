@@ -8,8 +8,15 @@ const updatedAt = "2026-06-07T23:30:00.000Z";
 
 const apiRun = {
   run_id: "run-test-001",
+  trace_id: "run-test-001",
   status: "done",
   runtime_mode: "deterministic",
+  requested_runtime_mode: "deterministic",
+  actual_runtime_mode: "deterministic",
+  runtime_status: "success",
+  runtime_error: null,
+  review_package_parse_status: "parsed",
+  llm_kickoff_attempted: false,
   updated_at: updatedAt,
   review_package: {
     classification: {
@@ -59,6 +66,64 @@ const apiRun = {
       timestamp: updatedAt,
     },
   ],
+  events: [
+    {
+      event_id: "evt-001",
+      run_id: "run-test-001",
+      trace_id: "run-test-001",
+      event_type: "run_started",
+      timestamp: updatedAt,
+      safe_summary: "Run started in deterministic mode.",
+      step_name: null,
+      duration_ms: null,
+      metadata: {},
+    },
+    {
+      event_id: "evt-002",
+      run_id: "run-test-001",
+      trace_id: "run-test-001",
+      event_type: "run_completed",
+      timestamp: updatedAt,
+      safe_summary: "Run completed and ReviewPackage is ready for human review.",
+      step_name: null,
+      duration_ms: 42,
+      metadata: { status: "done" },
+    },
+  ],
+  metrics: {
+    run_id: "run-test-001",
+    trace_id: "run-test-001",
+    runtime_mode: "deterministic",
+    status: "done",
+    started_at: updatedAt,
+    finished_at: updatedAt,
+    wall_time_ms: 42,
+    step_metrics: [
+      {
+        step_name: "classification",
+        status: "completed",
+        started_at: updatedAt,
+        finished_at: updatedAt,
+        duration_ms: 5,
+      },
+    ],
+    slowest_step: "classification",
+    error: null,
+    token_usage: null,
+    cost_estimate: null,
+  },
+  observability_summary: {
+    run_id: "run-test-001",
+    trace_id: "run-test-001",
+    runtime_mode: "deterministic",
+    status: "done",
+    started_at: updatedAt,
+    finished_at: updatedAt,
+    wall_time_ms: 42,
+    slowest_step: "classification",
+    event_count: 2,
+    error: null,
+  },
   human_review: {
     status: "pending",
     reviewer_notes: "",
@@ -66,9 +131,37 @@ const apiRun = {
   },
 };
 
+let forceLlmError = false;
+
 const mockFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input);
+  if (url.endsWith("/api/observability/summary")) {
+    return Response.json({
+      total_runs: 1,
+      completed_runs: 1,
+      error_runs: 0,
+      average_wall_time_ms: 42,
+      latest_run_id: apiRun.run_id,
+      deterministic_mode_runs: 1,
+      crewai_flow_mode_runs: 0,
+      llm_mode_runs: 0,
+    });
+  }
   if (url.endsWith("/api/runs") && init?.method === "POST") {
+    const body = JSON.parse(String(init.body ?? "{}"));
+    if (forceLlmError || body.runtimeMode === "crewai_llm") {
+      return Response.json({
+        ...apiRun,
+        status: "error",
+        runtime_mode: "crewai_llm",
+        requested_runtime_mode: "crewai_llm",
+        actual_runtime_mode: "crewai_llm",
+        runtime_status: "error",
+        runtime_error: "CrewAI LLM mode requires provider configuration. Missing: OPENAI_API_KEY.",
+        review_package: null,
+        llm_kickoff_attempted: false,
+      });
+    }
     return Response.json(apiRun);
   }
   if (url.endsWith("/api/runs")) {
@@ -76,8 +169,13 @@ const mockFetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => 
       runs: [
         {
           run_id: apiRun.run_id,
+          trace_id: apiRun.trace_id,
           status: apiRun.status,
           runtime_mode: apiRun.runtime_mode,
+          requested_runtime_mode: apiRun.requested_runtime_mode,
+          actual_runtime_mode: apiRun.actual_runtime_mode,
+          runtime_status: apiRun.runtime_status,
+          runtime_error: apiRun.runtime_error,
           subject: "Urgent: API sync failed again before our renewal review",
           review_status: "pending",
           created_at: updatedAt,
@@ -102,6 +200,7 @@ describe("Customer Support Review Workflow", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", mockFetch);
     mockFetch.mockClear();
+    forceLlmError = false;
   });
 
   afterEach(() => {
@@ -113,6 +212,7 @@ describe("Customer Support Review Workflow", () => {
 
     expect(screen.getByText("Crew: idle")).toBeInTheDocument();
     expect(screen.getByLabelText("Subject")).toHaveValue("Urgent: API sync failed again before our renewal review");
+    expect(screen.getByLabelText("Runtime mode")).toHaveValue("deterministic");
 
     await userEvent.click(screen.getByRole("button", { name: /run/i }));
 
@@ -121,6 +221,32 @@ describe("Customer Support Review Workflow", () => {
     expect(screen.getByText(/Human approval required: yes/i)).toBeInTheDocument();
     expect(screen.getByText(/This draft has not been sent/i)).toBeInTheDocument();
     expect(screen.getByText("Agent Activity")).toBeInTheDocument();
+    expect(screen.getByText("Event Timeline")).toBeInTheDocument();
+    expect(screen.getByText("Performance")).toBeInTheDocument();
+    expect(screen.getAllByText("run-test-001").length).toBeGreaterThan(0);
+  });
+
+  it("sends the selected runtime mode to the backend", async () => {
+    render(<App />);
+
+    await userEvent.selectOptions(screen.getByLabelText("Runtime mode"), "crewai_flow");
+    await userEvent.click(screen.getByRole("button", { name: /run/i }));
+
+    await waitFor(() => expect(screen.getAllByText("Crew: done").length).toBeGreaterThan(0), { timeout: 2000 });
+    const postCall = mockFetch.mock.calls.find(([url, init]) => String(url).endsWith("/api/runs") && init?.method === "POST");
+    expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({ runtimeMode: "crewai_flow" });
+  });
+
+  it("shows a safe LLM configuration error", async () => {
+    forceLlmError = true;
+    render(<App />);
+
+    await userEvent.selectOptions(screen.getByLabelText("Runtime mode"), "crewai_llm");
+    await userEvent.click(screen.getByRole("button", { name: /run/i }));
+
+    await waitFor(() => expect(screen.getAllByText("Crew: error").length).toBeGreaterThan(0), { timeout: 2000 });
+    expect(screen.getAllByText(/CrewAI LLM mode requires provider configuration/i).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
   });
 
   it("resets the workflow back to idle", async () => {

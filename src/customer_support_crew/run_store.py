@@ -29,9 +29,9 @@ class RunStore:
 
     def list(self) -> list[dict[str, Any]]:
         records: list[dict[str, Any]] = []
-        for path in sorted(self.runs_dir.glob("*.json"), reverse=True):
+        for path in self.runs_dir.glob("*.json"):
             records.append(json.loads(path.read_text(encoding="utf-8")))
-        return records
+        return sorted(records, key=lambda record: record.get("updated_at") or record.get("created_at") or "", reverse=True)
 
     def _path(self, run_id: str) -> Path:
         safe_id = "".join(ch for ch in run_id if ch.isalnum() or ch in {"-", "_"})
